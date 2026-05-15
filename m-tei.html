@@ -91,9 +91,9 @@
   <div class="section">
     <div class="section-title">エグゼクティブサマリー — 10年後の比較</div>
     <div class="compare-bar">
-      <span>2つ選択して拡大比較:</span>
-      <button id="compare-btn" disabled onclick="openCompare()">選択した2つを比較</button>
-      <span id="compare-count" style="font-size:13px;color:#888;">0 / 2 選択中</span>
+      <span>3つ選択して拡大比較:</span>
+      <button id="compare-btn" disabled onclick="openCompare()">選択した3つを比較</button>
+      <span id="compare-count" style="font-size:13px;color:#888;">0 / 3 選択中</span>
     </div>
     <div class="summary-scroll">
       <table id="summary-table">
@@ -609,14 +609,14 @@ const compareCount = document.getElementById('compare-count');
 
 checks.forEach(cb => cb.addEventListener('change', () => {
   const selected = [...checks].filter(c => c.checked);
-  if (selected.length > 2) { cb.checked = false; return; }
-  compareBtn.disabled = selected.length !== 2;
-  compareCount.textContent = selected.length + ' / 2 選択中';
+  if (selected.length > 3) { cb.checked = false; return; }
+  compareBtn.disabled = selected.length !== 3;
+  compareCount.textContent = selected.length + ' / 3 選択中';
 }));
 
 function openCompare() {
   const selected = [...checks].filter(c => c.checked).map(c => parseInt(c.dataset.idx));
-  if (selected.length !== 2) return;
+  if (selected.length !== 3) return;
   const table = document.getElementById('summary-table');
   const thead = table.querySelector('thead tr');
   const rows = table.querySelectorAll('tbody tr');
@@ -626,10 +626,10 @@ function openCompare() {
   const names = selected.map(i => ths[i + 1].textContent.trim());
   const colors = selected.map(i => ths[i + 1].style.background);
 
-  document.getElementById('modal-title').textContent = names[0] + ' vs ' + names[1];
+  document.getElementById('modal-title').textContent = names.join(' vs ');
 
   let html = '<table><thead><tr><th>指標</th>';
-  for (let k = 0; k < 2; k++) {
+  for (let k = 0; k < selected.length; k++) {
     html += `<th style="background:${colors[k]}">${names[k]}</th>`;
   }
   html += '</tr></thead><tbody>';
