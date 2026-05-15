@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dマンション 投資分析レポート</title>
+<style>
+  :root {
+    --navy: #1F4E79;
+    --navy-light: #2d6fa1;
+    --gold: #F59E0B;
+    --red: #DC2626;
+    --green: #2E8B57;
+    --orange: #E07B39;
+    --bg: #f5f7fa;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Yu Gothic','Hiragino Sans','Segoe UI',sans-serif; background:var(--bg); color:#333; }
+  .container { max-width:1400px; margin:0 auto; padding:24px; }
+
+  /* ヘッダー */
+  .header { background:linear-gradient(135deg,var(--navy),var(--navy-light)); color:#fff; padding:32px 40px; border-radius:12px 12px 0 0; }
+  .header h1 { font-size:26px; letter-spacing:1px; }
+  .header .sub { font-size:13px; opacity:.7; margin-top:6px; }
+
+  /* セクション */
+  .section { background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.06); margin-bottom:2px; overflow:hidden; }
+  .section:last-of-type { border-radius:0 0 12px 12px; margin-bottom:24px; }
+  .section-title { background:#f0f4f8; padding:16px 28px; font-size:16px; font-weight:700; color:var(--navy); border-bottom:2px solid var(--navy); display:flex; align-items:center; gap:10px; }
+  .section-title .badge { background:var(--navy); color:#fff; font-size:10px; padding:2px 8px; border-radius:3px; font-weight:400; }
+
+  /* KPIグリッド */
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; padding:24px 28px; }
+  .kpi { background:#f8fafc; border-radius:8px; padding:16px; border-left:4px solid var(--navy); }
+  .kpi.warn { border-left-color:var(--red); }
+  .kpi.good { border-left-color:var(--green); }
+  .kpi.gold { border-left-color:var(--gold); }
+  .kpi-label { font-size:11px; color:#888; margin-bottom:4px; }
+  .kpi-value { font-size:20px; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums; }
+  .kpi.warn .kpi-value { color:var(--red); }
+  .kpi.good .kpi-value { color:var(--green); }
+  .kpi-sub { font-size:10px; color:#999; margin-top:2px; }
+
+  /* チャートエリア */
+  .charts { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+  .chart-box { padding:20px 24px; border-bottom:1px solid #eee; cursor:pointer; transition:background .15s; position:relative; }
+  .chart-box:hover { background:#f8fafc; }
+  .chart-box:nth-child(odd) { border-right:1px solid #eee; }
+  .chart-box.full { grid-column:1/-1; }
+  .chart-box h4 { font-size:14px; color:var(--navy); margin-bottom:8px; }
+  .chart-box svg { display:block; width:100%; height:auto; }
+  .click-hint { position:absolute; top:12px; right:16px; font-size:10px; color:#aaa; opacity:0; transition:opacity .2s; }
+  .chart-box:hover .click-hint { opacity:1; }
+  .legend { padding:6px 0; display:flex; gap:16px; flex-wrap:wrap; }
+  .legend-item { font-size:12px; display:flex; align-items:center; gap:5px; }
+  .legend-dot { width:12px; height:12px; border-radius:3px; display:inline-block; }
+
+  /* モーダル */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; justify-content:center; align-items:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-content { background:#fff; border-radius:12px; padding:36px; width:92vw; max-width:1200px; max-height:92vh; overflow:auto; position:relative; box-shadow:0 8px 32px rgba(0,0,0,.3); }
+  .modal-content h3 { font-size:20px; color:var(--navy); margin-bottom:12px; }
+  .modal-content p.desc { font-size:13px; color:#666; margin-bottom:16px; line-height:1.7; }
+  .modal-close { position:absolute; top:12px; right:16px; font-size:28px; color:#999; cursor:pointer; border:none; background:none; }
+  .modal-close:hover { color:#333; }
+
+  /* 感度分析: 左右独立スクロール（高さ固定） */
+  .sens-layout { display:flex; height:85vh; }
+  .sens-left {
+    width:260px; min-width:260px; background:#f8fafc; border-right:2px solid var(--navy); padding:16px;
+    overflow-y:auto; scrollbar-width:thin;
+  }
+  .sens-left-title { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:12px; padding-bottom:6px; border-bottom:2px solid var(--navy); }
+  .sens-slider { padding:7px 0; }
+  .sens-slider label { font-size:11px; font-weight:600; color:var(--navy); display:flex; justify-content:space-between; margin-bottom:4px; }
+  .sens-slider input[type=range] { width:100%; accent-color:var(--navy); height:5px; cursor:pointer; }
+  .sens-slider .range-labels { display:flex; justify-content:space-between; font-size:9px; color:#999; margin-top:1px; }
+  .sens-divider { border-top:1px solid #ddd; margin:6px 0; }
+  .sens-right { flex:1; padding:24px; min-width:0; overflow-y:auto; }
+  .sens-result { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+  .sens-kpi { background:#f0f4f8; border-radius:6px; padding:10px; text-align:center; transition:background .3s; }
+  .sens-kpi.changed { background:#FEF3C7; }
+  .sens-kpi .label { font-size:10px; color:#666; line-height:1.3; }
+  .sens-kpi .value { font-size:16px; font-weight:700; color:var(--navy); margin-top:3px; font-variant-numeric:tabular-nums; }
+  #sens-chart { margin-top:16px; }
+  #sens-chart svg { width:100%; height:auto; }
+  @media (max-width:900px) {
+    .sens-layout { flex-direction:column; height:auto; }
+    .sens-left { width:100%; min-width:100%; border-right:none; border-bottom:2px solid var(--navy); max-height:40vh; }
+  }
+
+  /* 提案カード */
+  .rec-grid { padding:20px 28px; display:flex; flex-direction:column; gap:12px; }
+  .rec-item { padding:14px 16px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; position:relative; }
+  .rec-item.high { border-left:4px solid var(--red); }
+  .rec-item.low { border-left:4px solid #9CA3AF; }
+  .rec-year { font-size:20px; font-weight:700; color:var(--navy); }
+  .rec-reason { font-size:14px; font-weight:600; margin:2px 0; }
+  .rec-detail { font-size:12px; color:#666; line-height:1.6; }
+  .urgency-badge { position:absolute; top:14px; right:16px; font-size:11px; padding:2px 10px; border-radius:4px; font-weight:700; }
+  .urgency-badge.high { background:#FEE2E2; color:#991B1B; }
+  .urgency-badge.low { background:#F3F4F6; color:#6B7280; }
+
+  /* テーブル */
+  .table-scroll { overflow-x:auto; max-height:600px; overflow-y:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { background:var(--navy); color:#fff; padding:8px 10px; text-align:center; white-space:nowrap; position:sticky; top:0; z-index:1; font-size:11px; }
+  td { padding:6px 10px; border-bottom:1px solid #eee; }
+  td.yr { text-align:center; font-weight:600; width:36px; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  td.danger { color:#CC0000; background:#FDE8E8; font-weight:700; }
+  td.warn { font-size:10px; }
+  .warn-badge { background:#FEE2E2; color:#991B1B; padding:2px 5px; border-radius:3px; font-size:9px; font-weight:600; white-space:nowrap; }
+
+  /* タブ */
+  .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--navy); }
+  .tab { padding:10px 20px; font-size:13px; font-weight:600; color:#666; cursor:pointer; border:none; background:none; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
+  .tab.active { color:var(--navy); border-bottom-color:var(--navy); background:#f0f4f8; }
+  .tab:hover { color:var(--navy); background:#f8fafc; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  .disclaimer { padding:16px 28px; font-size:10px; color:#999; font-style:italic; border-top:1px solid #eee; }
+  @media print { body { padding:0; background:#fff; } .section { box-shadow:none; page-break-inside:avoid; } .modal-overlay,.click-hint { display:none !important; } }
+  @media (max-width:768px) { .charts { grid-template-columns:1fr; } .kpi-grid { grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ========== ヘッダー ========== -->
+  <div class="header">
+    <h1>Dマンション 投資分析レポート</h1>
+    <div class="sub">
+      高松市 | 区分マンション | RC造 築25年 | 1169.13m&sup2; |
+      作成日: 2026年05月14日 | Powered by Proformer
+    </div>
+  </div>
+
+  <!-- ========== KPIダッシュボード ========== -->
+  <div class="section">
+    <div class="section-title">KPI ダッシュボード</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">取得価格</div><div class="kpi-value">¥228,000,000</div><div class="kpi-sub">自己資金: ¥45,600,000</div></div>
+      <div class="kpi"><div class="kpi-label">NOI（年間）</div><div class="kpi-value">¥15,741,120</div><div class="kpi-sub">GPI: ¥19,676,400 / 空室率: 5%</div></div>
+      <div class="kpi good"><div class="kpi-label">Cap Rate</div><div class="kpi-value">6.9%</div><div class="kpi-sub">NOI / 取得価格</div></div>
+      <div class="kpi good"><div class="kpi-label">NPV（正味現在価値）</div><div class="kpi-value">¥37,980,094</div><div class="kpi-sub">投資価値あり</div></div>
+      <div class="kpi gold"><div class="kpi-label">Proformer IRR</div><div class="kpi-value">12.3%</div><div class="kpi-sub">IRRピーク: 13年目 12.23%</div></div>
+      <div class="kpi gold"><div class="kpi-label">IRRピーク</div><div class="kpi-value">12.23%</div><div class="kpi-sub">13年目</div></div>
+      <div class="kpi"><div class="kpi-label">借入額 / ADS</div><div class="kpi-value">¥182,400,000</div><div class="kpi-sub">ADS: ¥9,228,069/年 | 金利3.0% | 30年</div></div>
+      <div class="kpi good"><div class="kpi-label">DSCR</div><div class="kpi-value">1.71</div><div class="kpi-sub">安全圏</div></div>
+      <div class="kpi good"><div class="kpi-label">デッドクロス</div><div class="kpi-value">25年以内なし</div><div class="kpi-sub">減価償却残: 22年 / 年額: ¥5,181,818</div></div>
+      <div class="kpi gold"><div class="kpi-label">資産最大化売却年</div><div class="kpi-value">25年目</div><div class="kpi-sub">再投資資産: ¥345,997,226</div></div>
+      <div class="kpi"><div class="kpi-label">元金vs償却クロス</div><div class="kpi-value">12年目</div><div class="kpi-sub">元金返済が減価償却を超える年</div></div>
+      <div class="kpi"><div class="kpi-label">運営費率</div><div class="kpi-value">15.8%</div><div class="kpi-sub">運営費: ¥2,951,460/年</div></div>
+    </div>
+  </div>
+
+  <!-- ========== タブ切替 ========== -->
+  <div class="section">
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab('tab-charts')">チャート分析</button>
+      <button class="tab" onclick="switchTab('tab-sensitivity')">感度分析</button>
+      <button class="tab" onclick="switchTab('tab-table')">年次データ</button>
+      <button class="tab" onclick="switchTab('tab-recs')">売り時提案</button>
+    </div>
+
+    <!-- ===== チャートタブ ===== -->
+    <div class="tab-content active" id="tab-charts">
+      <div class="charts" id="charts-container"></div>
+    </div>
+
+    <!-- ===== 感度分析タブ ===== -->
+    <div class="tab-content" id="tab-sensitivity">
+      <div class="sens-layout">
+        <!-- 左: スライダーパネル（固定） -->
+        <div class="sens-left">
+          <div class="sens-left-title">パラメータ</div>
+          <div class="sens-slider">
+            <label>金利 <span id="lbl-rate">3.0%</span></label>
+            <input type="range" id="sl-rate" min="0.5" max="5.0" step="0.1" value="3.0">
+            <div class="range-labels"><span>0.5%</span><span>5.0%</span></div>
+          </div>
+          <div class="sens-slider">
+            <label>空室率 <span id="lbl-vacancy">5%</span></label>
+            <input type="range" id="sl-vacancy" min="0" max="30" step="1" value="5">
+            <div class="range-labels"><span>0%</span><span>30%</span></div>
+          </div>
+          <div class="sens-slider">
+            <label>出口Cap Rate <span id="lbl-exit-cap">7.4%</span></label>
+            <input type="range" id="sl-exit-cap" min="4.0" max="12.0" step="0.1" value="7.4">
+            <div class="range-labels"><span>4.0%</span><span>12.0%</span></div>
+          </div>
+          <div class="sens-slider">
+            <label>賃料成長率 <span id="lbl-rent-growth">0.0%</span></label>
+            <input type="range" id="sl-rent-growth" min="-2.0" max="3.0" step="0.1" value="0.0">
+            <div class="range-labels"><span>-2.0%</span><span>+3.0%</span></div>
+          </div>
+          <div class="sens-slider">
+            <label>運営費成長率 <span id="lbl-opex-growth">0.0%</span></label>
+            <input type="range" id="sl-opex-growth" min="-2.0" max="5.0" step="0.1" value="0.0">
+            <div class="range-labels"><span>-2.0%</span><span>+5.0%</span></div>
+          </div>
+          <div class="sens-divider"></div>
+          <div class="sens-slider">
+            <label>売却想定年 <span id="lbl-sale-year">10年目</span></label>
+            <input type="range" id="sl-sale-year" min="1" max="25" step="1" value="10">
+            <div class="range-labels"><span>1年目</span><span>25年目</span></div>
+          </div>
+          <div class="sens-slider">
+            <label>割引率（NPV用） <span id="lbl-discount">5.0%</span></label>
+            <input type="range" id="sl-discount" min="1.0" max="10.0" step="0.5" value="5.0">
+            <div class="range-labels"><span>1.0%</span><span>10.0%</span></div>
+          </div>
+          <div class="sens-divider"></div>
+          <div class="sens-slider">
+            <label>再投資率 <span id="lbl-reinv">5.0%</span></label>
+            <input type="range" id="sl-reinv" min="0.0" max="10.0" step="0.5" value="5.0">
+            <div class="range-labels"><span>0%</span><span>10%</span></div>
+          </div>
+          <div class="sens-slider">
+            <label>安全率 <span id="lbl-safe">2.0%</span></label>
+            <input type="range" id="sl-safe" min="0.0" max="5.0" step="0.5" value="2.0">
+            <div class="range-labels"><span>0%</span><span>5%</span></div>
+          </div>
+        </div>
+        <!-- 右: KPI + チャート -->
+        <div class="sens-right">
+          <div class="sens-result" id="sens-result"></div>
+          <div id="sens-chart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 年次データタブ ===== -->
+    <div class="tab-content" id="tab-table">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>年</th><th>NOI</th><th>ADS</th><th>BTCF</th>
+              <th>減価償却</th><th>元金返済</th><th>課税所得</th><th>税金</th>
+              <th>ATCF</th><th>累積ATCF</th>
+              <th>ローン残高</th><th>推定売却価格</th><th>税引後手取り</th>
+              <th>再投資資産</th><th>IRR</th><th>警告</th>
+            </tr>
+          </thead>
+          <tbody><tr>
+          <td class="yr">1</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥3,808,148</td>
+          <td class="num">¥5,139,381</td>
+          <td class="num">¥1,695,996</td>
+          <td class="num">¥4,817,055</td>
+          <td class="num">¥4,817,055</td>
+          <td class="num">¥178,591,852</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥25,617,272</td>
+          <td class="num">¥30,434,327</td>
+          <td class="num">-33.26%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">2</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥3,923,976</td>
+          <td class="num">¥5,255,209</td>
+          <td class="num">¥1,734,219</td>
+          <td class="num">¥4,778,832</td>
+          <td class="num">¥9,595,887</td>
+          <td class="num">¥174,667,876</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥29,541,248</td>
+          <td class="num">¥39,377,989</td>
+          <td class="num">-7.80%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">3</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,043,328</td>
+          <td class="num">¥5,374,561</td>
+          <td class="num">¥1,773,605</td>
+          <td class="num">¥4,739,446</td>
+          <td class="num">¥14,335,333</td>
+          <td class="num">¥170,624,548</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥33,584,576</td>
+          <td class="num">¥48,652,599</td>
+          <td class="num">1.86%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">4</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,166,309</td>
+          <td class="num">¥5,497,542</td>
+          <td class="num">¥1,814,189</td>
+          <td class="num">¥4,698,862</td>
+          <td class="num">¥19,034,195</td>
+          <td class="num">¥166,458,239</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥37,750,886</td>
+          <td class="num">¥58,271,172</td>
+          <td class="num">6.54%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">5</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,293,032</td>
+          <td class="num">¥5,624,265</td>
+          <td class="num">¥1,856,007</td>
+          <td class="num">¥4,657,044</td>
+          <td class="num">¥23,691,239</td>
+          <td class="num">¥162,165,207</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥41,204,469</td>
+          <td class="num">¥67,407,813</td>
+          <td class="num">8.79%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">6</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,423,608</td>
+          <td class="num">¥5,754,841</td>
+          <td class="num">¥1,899,098</td>
+          <td class="num">¥4,613,953</td>
+          <td class="num">¥28,305,192</td>
+          <td class="num">¥157,741,598</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥44,984,524</td>
+          <td class="num">¥77,111,989</td>
+          <td class="num">10.20%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">7</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,558,157</td>
+          <td class="num">¥5,889,389</td>
+          <td class="num">¥1,943,499</td>
+          <td class="num">¥4,569,552</td>
+          <td class="num">¥32,874,744</td>
+          <td class="num">¥153,183,442</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥48,489,995</td>
+          <td class="num">¥86,793,385</td>
+          <td class="num">10.98%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">8</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,696,797</td>
+          <td class="num">¥6,028,030</td>
+          <td class="num">¥1,989,250</td>
+          <td class="num">¥4,523,801</td>
+          <td class="num">¥37,398,545</td>
+          <td class="num">¥148,486,644</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥52,134,106</td>
+          <td class="num">¥96,876,466</td>
+          <td class="num">11.49%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">9</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,839,655</td>
+          <td class="num">¥6,170,888</td>
+          <td class="num">¥2,036,393</td>
+          <td class="num">¥4,476,658</td>
+          <td class="num">¥41,875,203</td>
+          <td class="num">¥143,646,989</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥55,921,074</td>
+          <td class="num">¥107,377,211</td>
+          <td class="num">11.82%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">10</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥4,986,858</td>
+          <td class="num">¥6,318,090</td>
+          <td class="num">¥2,084,970</td>
+          <td class="num">¥4,428,081</td>
+          <td class="num">¥46,303,284</td>
+          <td class="num">¥138,660,131</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥59,855,246</td>
+          <td class="num">¥118,312,270</td>
+          <td class="num">12.02%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">11</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥5,138,538</td>
+          <td class="num">¥6,469,771</td>
+          <td class="num">¥2,135,024</td>
+          <td class="num">¥4,378,027</td>
+          <td class="num">¥50,681,311</td>
+          <td class="num">¥133,521,594</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥63,941,097</td>
+          <td class="num">¥129,698,999</td>
+          <td class="num">12.14%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">12</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥5,294,831</td>
+          <td class="num">¥6,626,064</td>
+          <td class="num">¥2,186,601</td>
+          <td class="num">¥4,326,450</td>
+          <td class="num">¥55,007,761</td>
+          <td class="num">¥128,226,762</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥68,183,242</td>
+          <td class="num">¥141,555,489</td>
+          <td class="num">12.21%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">13</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥5,455,879</td>
+          <td class="num">¥6,787,111</td>
+          <td class="num">¥2,239,747</td>
+          <td class="num">¥4,273,304</td>
+          <td class="num">¥59,281,065</td>
+          <td class="num">¥122,770,883</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥72,586,435</td>
+          <td class="num">¥153,900,598</td>
+          <td class="num">12.23%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">14</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥5,621,824</td>
+          <td class="num">¥6,953,057</td>
+          <td class="num">¥2,294,509</td>
+          <td class="num">¥4,218,542</td>
+          <td class="num">¥63,499,607</td>
+          <td class="num">¥117,149,059</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥77,155,573</td>
+          <td class="num">¥166,753,987</td>
+          <td class="num">12.23%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">15</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥5,792,818</td>
+          <td class="num">¥7,124,050</td>
+          <td class="num">¥2,350,937</td>
+          <td class="num">¥4,162,114</td>
+          <td class="num">¥67,661,721</td>
+          <td class="num">¥111,356,241</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥81,895,704</td>
+          <td class="num">¥180,136,153</td>
+          <td class="num">12.20%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">16</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥5,969,012</td>
+          <td class="num">¥7,300,244</td>
+          <td class="num">¥2,409,081</td>
+          <td class="num">¥4,103,970</td>
+          <td class="num">¥71,765,691</td>
+          <td class="num">¥105,387,230</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥86,812,029</td>
+          <td class="num">¥194,068,471</td>
+          <td class="num">12.16%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">17</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥6,150,565</td>
+          <td class="num">¥7,481,798</td>
+          <td class="num">¥2,468,993</td>
+          <td class="num">¥4,044,058</td>
+          <td class="num">¥75,809,749</td>
+          <td class="num">¥99,236,665</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥91,909,908</td>
+          <td class="num">¥208,573,229</td>
+          <td class="num">12.10%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">18</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥6,337,640</td>
+          <td class="num">¥7,668,873</td>
+          <td class="num">¥2,530,728</td>
+          <td class="num">¥3,982,323</td>
+          <td class="num">¥79,792,072</td>
+          <td class="num">¥92,899,024</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥97,194,862</td>
+          <td class="num">¥223,673,672</td>
+          <td class="num">12.04%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">19</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥6,530,406</td>
+          <td class="num">¥7,861,638</td>
+          <td class="num">¥2,594,341</td>
+          <td class="num">¥3,918,710</td>
+          <td class="num">¥83,710,782</td>
+          <td class="num">¥86,368,619</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥102,672,581</td>
+          <td class="num">¥239,394,042</td>
+          <td class="num">11.98%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">20</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥6,729,034</td>
+          <td class="num">¥8,060,267</td>
+          <td class="num">¥2,659,888</td>
+          <td class="num">¥3,853,163</td>
+          <td class="num">¥87,563,945</td>
+          <td class="num">¥79,639,584</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥108,348,929</td>
+          <td class="num">¥255,759,626</td>
+          <td class="num">11.91%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">21</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥6,933,704</td>
+          <td class="num">¥8,264,937</td>
+          <td class="num">¥2,727,429</td>
+          <td class="num">¥3,785,622</td>
+          <td class="num">¥91,349,567</td>
+          <td class="num">¥72,705,880</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥114,229,947</td>
+          <td class="num">¥272,796,800</td>
+          <td class="num">11.83%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">22</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥5,181,818</td>
+          <td class="num">¥7,144,599</td>
+          <td class="num">¥8,475,832</td>
+          <td class="num">¥2,797,025</td>
+          <td class="num">¥3,716,026</td>
+          <td class="num">¥95,065,593</td>
+          <td class="num">¥65,561,281</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥120,321,860</td>
+          <td class="num">¥290,533,082</td>
+          <td class="num">11.76%</td>
+          <td class="warn"></td>
+        </tr>
+<tr>
+          <td class="yr">23</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥0</td>
+          <td class="num">¥7,361,909</td>
+          <td class="num">¥13,874,960</td>
+          <td class="num">¥4,578,737</td>
+          <td class="num">¥1,934,314</td>
+          <td class="num">¥96,999,907</td>
+          <td class="num">¥58,199,371</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥127,683,769</td>
+          <td class="num">¥308,339,867</td>
+          <td class="num">11.67%</td>
+          <td class="warn"><span class="warn-badge">減価償却終了 / 再投資乖離リスク</span></td>
+        </tr>
+<tr>
+          <td class="yr">24</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥0</td>
+          <td class="num">¥7,585,829</td>
+          <td class="num">¥14,098,880</td>
+          <td class="num">¥4,652,630</td>
+          <td class="num">¥1,860,421</td>
+          <td class="num">¥98,860,328</td>
+          <td class="num">¥50,613,543</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥135,269,598</td>
+          <td class="num">¥326,818,921</td>
+          <td class="num">11.58%</td>
+          <td class="warn"><span class="warn-badge">再投資乖離リスク</span></td>
+        </tr>
+<tr>
+          <td class="yr">25</td>
+          <td class="num">¥15,741,120</td>
+          <td class="num">¥9,228,069</td>
+          <td class="num">¥6,513,051</td>
+          <td class="num">¥0</td>
+          <td class="num">¥7,816,559</td>
+          <td class="num">¥14,329,610</td>
+          <td class="num">¥4,728,771</td>
+          <td class="num">¥1,784,280</td>
+          <td class="num">¥100,644,607</td>
+          <td class="num">¥42,796,983</td>
+          <td class="num">¥212,717,838</td>
+          <td class="num">¥143,086,157</td>
+          <td class="num">¥345,997,226</td>
+          <td class="num">11.50%</td>
+          <td class="warn"><span class="warn-badge">再投資乖離リスク</span></td>
+        </tr>
+</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== 売り時提案タブ ===== -->
+    <div class="tab-content" id="tab-recs">
+      <div class="rec-grid">
+        <div class="rec-item high">
+          <div class="rec-year">22年目</div>
+          <div class="rec-reason">減価償却終了直前</div>
+          <div class="rec-detail">23年目に償却終了 -> 課税所得が年間約¥5,181,818増加。22年目が税メリット最後の年</div>
+          <span class="urgency-badge high">高</span>
+        </div>
+        <div class="rec-item high">
+          <div class="rec-year">13年目</div>
+          <div class="rec-reason">IRRピーク</div>
+          <div class="rec-detail">13年目のIRRが12.23%で最大。以降は保有するほどIRRが低下する可能性</div>
+          <span class="urgency-badge high">推奨</span>
+        </div>
+        <div class="rec-item high">
+          <div class="rec-year">25年目</div>
+          <div class="rec-reason">再投資ベース資産最大化</div>
+          <div class="rec-detail">25年目に売却で再投資資産¥345,997,226。（CF再投資FV ¥345,997,226 + 税引後売却手取り ¥143,086,157）</div>
+          <span class="urgency-badge high">推奨</span>
+        </div>
+        <div class="rec-item high">
+          <div class="rec-year">10年目</div>
+          <div class="rec-reason">資本蓄積効率ピーク</div>
+          <div class="rec-detail">10年目が再投資効率を考慮した最適年。IRRピーク(13年目)と異なり、CF再投資運用を加味するとこの年の売却が効率的</div>
+          <span class="urgency-badge high">推奨</span>
+        </div></div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    ※ 本分析はCCIM/IREM理論に基づく参考情報です。投資助言ではありません。<br>
+    不動産所得税: 累進課税(5-45%) + 住民税10%。譲渡所得税: 短期(5年以下)39.63% / 長期(5年超)20.315%。
+    売却費用: 売却価格の4%。再投資率5% / 安全率2%。
+  </div>
+</div>
+
+<script>
+// ===================================================================
+// データ
+// ===================================================================
+const DATA = [{"year": 1, "noi": 15741120, "ads": 9228069, "interest": 5419921, "principal": 3808148, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 5139381, "tax": 1695996, "atcf": 4817055, "cumulative_atcf": 4817055, "loan_balance": 178591852, "book_value": 222818182, "estimated_sale_price": 212717838, "capital_gains_tax": 0, "after_tax_sale_proceeds": 25617272, "equity": 34125986, "fv_positive_cf": 30434327, "reinvested_wealth": 30434327, "reserve_needed": 0, "irr": -33.26, "fmrr": -33.26, "warnings": []}, {"year": 2, "noi": 15741120, "ads": 9228069, "interest": 5304093, "principal": 3923976, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 5255209, "tax": 1734219, "atcf": 4778832, "cumulative_atcf": 9595887, "loan_balance": 174667876, "book_value": 217636364, "estimated_sale_price": 212717838, "capital_gains_tax": 0, "after_tax_sale_proceeds": 29541248, "equity": 38049962, "fv_positive_cf": 39377989, "reinvested_wealth": 39377989, "reserve_needed": 0, "irr": -7.8, "fmrr": -7.07, "warnings": []}, {"year": 3, "noi": 15741120, "ads": 9228069, "interest": 5184741, "principal": 4043328, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 5374561, "tax": 1773605, "atcf": 4739446, "cumulative_atcf": 14335333, "loan_balance": 170624548, "book_value": 212454545, "estimated_sale_price": 212717838, "capital_gains_tax": 0, "after_tax_sale_proceeds": 33584576, "equity": 42093290, "fv_positive_cf": 48652599, "reinvested_wealth": 48652599, "reserve_needed": 0, "irr": 1.86, "fmrr": 2.18, "warnings": []}, {"year": 4, "noi": 15741120, "ads": 9228069, "interest": 5061760, "principal": 4166309, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 5497542, "tax": 1814189, "atcf": 4698862, "cumulative_atcf": 19034195, "loan_balance": 166458239, "book_value": 207272727, "estimated_sale_price": 212717838, "capital_gains_tax": 0, "after_tax_sale_proceeds": 37750886, "equity": 46259599, "fv_positive_cf": 58271172, "reinvested_wealth": 58271172, "reserve_needed": 0, "irr": 6.54, "fmrr": 6.32, "warnings": []}, {"year": 5, "noi": 15741120, "ads": 9228069, "interest": 4935037, "principal": 4293032, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 5624265, "tax": 1856007, "atcf": 4657044, "cumulative_atcf": 23691239, "loan_balance": 162165207, "book_value": 202090909, "estimated_sale_price": 212717838, "capital_gains_tax": 839449, "after_tax_sale_proceeds": 41204469, "equity": 50552631, "fv_positive_cf": 67407813, "reinvested_wealth": 67407813, "reserve_needed": 0, "irr": 8.79, "fmrr": 8.13, "warnings": []}, {"year": 6, "noi": 15741120, "ads": 9228069, "interest": 4804461, "principal": 4423608, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 5754841, "tax": 1899098, "atcf": 4613953, "cumulative_atcf": 28305192, "loan_balance": 157741598, "book_value": 196909091, "estimated_sale_price": 212717838, "capital_gains_tax": 1483002, "after_tax_sale_proceeds": 44984524, "equity": 54976240, "fv_positive_cf": 77111989, "reinvested_wealth": 77111989, "reserve_needed": 0, "irr": 10.2, "fmrr": 9.15, "warnings": []}, {"year": 7, "noi": 15741120, "ads": 9228069, "interest": 4669912, "principal": 4558157, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 5889389, "tax": 1943499, "atcf": 4569552, "cumulative_atcf": 32874744, "loan_balance": 153183442, "book_value": 191727273, "estimated_sale_price": 212717838, "capital_gains_tax": 2535688, "after_tax_sale_proceeds": 48489995, "equity": 59534396, "fv_positive_cf": 86793385, "reinvested_wealth": 86793385, "reserve_needed": 0, "irr": 10.98, "fmrr": 9.63, "warnings": []}, {"year": 8, "noi": 15741120, "ads": 9228069, "interest": 4531272, "principal": 4696797, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 6028030, "tax": 1989250, "atcf": 4523801, "cumulative_atcf": 37398545, "loan_balance": 148486644, "book_value": 186545455, "estimated_sale_price": 212717838, "capital_gains_tax": 3588375, "after_tax_sale_proceeds": 52134106, "equity": 64231194, "fv_positive_cf": 96876466, "reinvested_wealth": 96876466, "reserve_needed": 0, "irr": 11.49, "fmrr": 9.88, "warnings": []}, {"year": 9, "noi": 15741120, "ads": 9228069, "interest": 4388414, "principal": 4839655, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 6170888, "tax": 2036393, "atcf": 4476658, "cumulative_atcf": 41875203, "loan_balance": 143646989, "book_value": 181363636, "estimated_sale_price": 212717838, "capital_gains_tax": 4641061, "after_tax_sale_proceeds": 55921074, "equity": 69070849, "fv_positive_cf": 107377211, "reinvested_wealth": 107377211, "reserve_needed": 0, "irr": 11.82, "fmrr": 9.98, "warnings": []}, {"year": 10, "noi": 15741120, "ads": 9228069, "interest": 4241211, "principal": 4986858, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 6318090, "tax": 2084970, "atcf": 4428081, "cumulative_atcf": 46303284, "loan_balance": 138660131, "book_value": 176181818, "estimated_sale_price": 212717838, "capital_gains_tax": 5693747, "after_tax_sale_proceeds": 59855246, "equity": 74057707, "fv_positive_cf": 118312270, "reinvested_wealth": 118312270, "reserve_needed": 0, "irr": 12.02, "fmrr": 10.0, "warnings": []}, {"year": 11, "noi": 15741120, "ads": 9228069, "interest": 4089531, "principal": 5138538, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 6469771, "tax": 2135024, "atcf": 4378027, "cumulative_atcf": 50681311, "loan_balance": 133521594, "book_value": 171000000, "estimated_sale_price": 212717838, "capital_gains_tax": 6746434, "after_tax_sale_proceeds": 63941097, "equity": 79196244, "fv_positive_cf": 129698999, "reinvested_wealth": 129698999, "reserve_needed": 0, "irr": 12.14, "fmrr": 9.97, "warnings": []}, {"year": 12, "noi": 15741120, "ads": 9228069, "interest": 3933238, "principal": 5294831, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 6626064, "tax": 2186601, "atcf": 4326450, "cumulative_atcf": 55007761, "loan_balance": 128226762, "book_value": 165818182, "estimated_sale_price": 212717838, "capital_gains_tax": 7799120, "after_tax_sale_proceeds": 68183242, "equity": 84491076, "fv_positive_cf": 141555489, "reinvested_wealth": 141555489, "reserve_needed": 0, "irr": 12.21, "fmrr": 9.9, "warnings": []}, {"year": 13, "noi": 15741120, "ads": 9228069, "interest": 3772190, "principal": 5455879, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 6787111, "tax": 2239747, "atcf": 4273304, "cumulative_atcf": 59281065, "loan_balance": 122770883, "book_value": 160636364, "estimated_sale_price": 212717838, "capital_gains_tax": 8851806, "after_tax_sale_proceeds": 72586435, "equity": 89946954, "fv_positive_cf": 153900598, "reinvested_wealth": 153900598, "reserve_needed": 0, "irr": 12.23, "fmrr": 9.81, "warnings": []}, {"year": 14, "noi": 15741120, "ads": 9228069, "interest": 3606245, "principal": 5621824, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 6953057, "tax": 2294509, "atcf": 4218542, "cumulative_atcf": 63499607, "loan_balance": 117149059, "book_value": 155454545, "estimated_sale_price": 212717838, "capital_gains_tax": 9904493, "after_tax_sale_proceeds": 77155573, "equity": 95568779, "fv_positive_cf": 166753987, "reinvested_wealth": 166753987, "reserve_needed": 0, "irr": 12.23, "fmrr": 9.7, "warnings": []}, {"year": 15, "noi": 15741120, "ads": 9228069, "interest": 3435251, "principal": 5792818, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 7124050, "tax": 2350937, "atcf": 4162114, "cumulative_atcf": 67661721, "loan_balance": 111356241, "book_value": 150272727, "estimated_sale_price": 212717838, "capital_gains_tax": 10957179, "after_tax_sale_proceeds": 81895704, "equity": 101361597, "fv_positive_cf": 180136153, "reinvested_wealth": 180136153, "reserve_needed": 0, "irr": 12.2, "fmrr": 9.59, "warnings": []}, {"year": 16, "noi": 15741120, "ads": 9228069, "interest": 3259057, "principal": 5969012, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 7300244, "tax": 2409081, "atcf": 4103970, "cumulative_atcf": 71765691, "loan_balance": 105387230, "book_value": 145090909, "estimated_sale_price": 212717838, "capital_gains_tax": 12009865, "after_tax_sale_proceeds": 86812029, "equity": 107330608, "fv_positive_cf": 194068471, "reinvested_wealth": 194068471, "reserve_needed": 0, "irr": 12.16, "fmrr": 9.47, "warnings": []}, {"year": 17, "noi": 15741120, "ads": 9228069, "interest": 3077504, "principal": 6150565, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 7481798, "tax": 2468993, "atcf": 4044058, "cumulative_atcf": 75809749, "loan_balance": 99236665, "book_value": 139909091, "estimated_sale_price": 212717838, "capital_gains_tax": 13062552, "after_tax_sale_proceeds": 91909908, "equity": 113481173, "fv_positive_cf": 208573229, "reinvested_wealth": 208573229, "reserve_needed": 0, "irr": 12.1, "fmrr": 9.36, "warnings": []}, {"year": 18, "noi": 15741120, "ads": 9228069, "interest": 2890429, "principal": 6337640, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 7668873, "tax": 2530728, "atcf": 3982323, "cumulative_atcf": 79792072, "loan_balance": 92899024, "book_value": 134727273, "estimated_sale_price": 212717838, "capital_gains_tax": 14115238, "after_tax_sale_proceeds": 97194862, "equity": 119818814, "fv_positive_cf": 223673672, "reinvested_wealth": 223673672, "reserve_needed": 0, "irr": 12.04, "fmrr": 9.24, "warnings": []}, {"year": 19, "noi": 15741120, "ads": 9228069, "interest": 2697663, "principal": 6530406, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 7861638, "tax": 2594341, "atcf": 3918710, "cumulative_atcf": 83710782, "loan_balance": 86368619, "book_value": 129545455, "estimated_sale_price": 212717838, "capital_gains_tax": 15167925, "after_tax_sale_proceeds": 102672581, "equity": 126349219, "fv_positive_cf": 239394042, "reinvested_wealth": 239394042, "reserve_needed": 0, "irr": 11.98, "fmrr": 9.12, "warnings": []}, {"year": 20, "noi": 15741120, "ads": 9228069, "interest": 2499035, "principal": 6729034, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 8060267, "tax": 2659888, "atcf": 3853163, "cumulative_atcf": 87563945, "loan_balance": 79639584, "book_value": 124363636, "estimated_sale_price": 212717838, "capital_gains_tax": 16220611, "after_tax_sale_proceeds": 108348929, "equity": 133078253, "fv_positive_cf": 255759626, "reinvested_wealth": 255759626, "reserve_needed": 0, "irr": 11.91, "fmrr": 9.0, "warnings": []}, {"year": 21, "noi": 15741120, "ads": 9228069, "interest": 2294365, "principal": 6933704, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 8264937, "tax": 2727429, "atcf": 3785622, "cumulative_atcf": 91349567, "loan_balance": 72705880, "book_value": 119181818, "estimated_sale_price": 212717838, "capital_gains_tax": 17273297, "after_tax_sale_proceeds": 114229947, "equity": 140011958, "fv_positive_cf": 272796800, "reinvested_wealth": 272796800, "reserve_needed": 0, "irr": 11.83, "fmrr": 8.89, "warnings": []}, {"year": 22, "noi": 15741120, "ads": 9228069, "interest": 2083470, "principal": 7144599, "btcf": 6513051, "depreciation": 5181818, "taxable_income": 8475832, "tax": 2797025, "atcf": 3716026, "cumulative_atcf": 95065593, "loan_balance": 65561281, "book_value": 114000000, "estimated_sale_price": 212717838, "capital_gains_tax": 18325984, "after_tax_sale_proceeds": 120321860, "equity": 147156557, "fv_positive_cf": 290533082, "reinvested_wealth": 290533082, "reserve_needed": 0, "irr": 11.76, "fmrr": 8.78, "warnings": []}, {"year": 23, "noi": 15741120, "ads": 9228069, "interest": 1866160, "principal": 7361909, "btcf": 6513051, "depreciation": 0, "taxable_income": 13874960, "tax": 4578737, "atcf": 1934314, "cumulative_atcf": 96999907, "loan_balance": 58199371, "book_value": 114000000, "estimated_sale_price": 212717838, "capital_gains_tax": 18325984, "after_tax_sale_proceeds": 127683769, "equity": 154518466, "fv_positive_cf": 308339867, "reinvested_wealth": 308339867, "reserve_needed": 0, "irr": 11.67, "fmrr": 8.67, "warnings": ["減価償却終了", "再投資乖離リスク"]}, {"year": 24, "noi": 15741120, "ads": 9228069, "interest": 1642240, "principal": 7585829, "btcf": 6513051, "depreciation": 0, "taxable_income": 14098880, "tax": 4652630, "atcf": 1860421, "cumulative_atcf": 98860328, "loan_balance": 50613543, "book_value": 114000000, "estimated_sale_price": 212717838, "capital_gains_tax": 18325984, "after_tax_sale_proceeds": 135269598, "equity": 162104295, "fv_positive_cf": 326818921, "reinvested_wealth": 326818921, "reserve_needed": 0, "irr": 11.58, "fmrr": 8.55, "warnings": ["再投資乖離リスク"]}, {"year": 25, "noi": 15741120, "ads": 9228069, "interest": 1411510, "principal": 7816559, "btcf": 6513051, "depreciation": 0, "taxable_income": 14329610, "tax": 4728771, "atcf": 1784280, "cumulative_atcf": 100644607, "loan_balance": 42796983, "book_value": 114000000, "estimated_sale_price": 212717838, "capital_gains_tax": 18325984, "after_tax_sale_proceeds": 143086157, "equity": 169920854, "fv_positive_cf": 345997226, "reinvested_wealth": 345997226, "reserve_needed": 0, "irr": 11.5, "fmrr": 8.44, "warnings": ["再投資乖離リスク"]}];
+const BASE = {"acq_price": 228000000, "gpi": 19676400, "vacancy_rate": 5, "opex": 2951460, "noi": 15741120, "loan_amount": 182400000, "interest_rate": 3.0, "loan_term": 30, "structure": "RC", "age": 25, "building_ratio": 0.5, "cap_rate": 6.9, "exit_cap_rate": 7.400000000000001, "equity": 45600000, "reinvestment_rate": 5.0, "safe_rate": 2.0, "analysis_years": 25, "tax_rate_override": 0.33};
+const YEARS = BASE.analysis_years;
+const COLORS = {navy:'#1F4E79', orange:'#E07B39', green:'#2E8B57', red:'#DC2626', gold:'#F59E0B', gray:'#9CA3AF'};
+
+// ===================================================================
+// ユーティリティ
+// ===================================================================
+function yen(v) { return '\u00a5' + Math.round(v).toLocaleString(); }
+function pct(v, dp) { return (v).toFixed(dp || 1) + '%'; }
+
+// ===================================================================
+// チャート描画エンジン（SVG）
+// ===================================================================
+function makeSVG(w, h, content) {
+  return `<svg viewBox="0 0 ${w} ${h+10}">${content}</svg>`;
+}
+
+function drawLineChart(data, getters, colors, labels, w, h, fmtY, fmtTooltip) {
+  let maxV = 0.0001, minV = 0;
+  for (const g of getters) {
+    for (const d of data) {
+      const v = g(d);
+      if (v !== null && v !== undefined) {
+        maxV = Math.max(maxV, Math.abs(v));
+        minV = Math.min(minV, v);
+      }
+    }
+  }
+  const hasNeg = minV < 0;
+  const range = hasNeg ? Math.max(Math.abs(maxV), Math.abs(minV)) : maxV;
+  const zeroY = hasNeg ? h/2 : h-20;
+  const scale = hasNeg ? (h-40)/2/range : (h-40)/range;
+
+  let svg = '';
+  // Grid
+  if (hasNeg) {
+    svg += `<line x1="60" y1="${zeroY}" x2="${w-20}" y2="${zeroY}" stroke="#999" stroke-width="0.5" stroke-dasharray="4"/>`;
+    svg += `<text x="55" y="${zeroY+4}" text-anchor="end" font-size="10" fill="#999">0</text>`;
+    for (let s of [1,-1]) {
+      for (let i=1; i<=2; i++) {
+        const v = range*i/2*s;
+        const y = zeroY - v*scale;
+        svg += `<text x="55" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${fmtY(v)}</text>`;
+        svg += `<line x1="60" y1="${y}" x2="${w-20}" y2="${y}" stroke="#eee" stroke-width="0.5"/>`;
+      }
+    }
+  } else {
+    for (let i=0; i<5; i++) {
+      const v = maxV*i/4;
+      const y = zeroY - v*scale;
+      svg += `<text x="55" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${fmtY(v)}</text>`;
+      svg += `<line x1="60" y1="${y}" x2="${w-20}" y2="${y}" stroke="#eee" stroke-width="0.5"/>`;
+    }
+  }
+  // X labels
+  for (const d of data) {
+    if (d.year===1 || d.year%5===0 || d.year===YEARS) {
+      const x = 60+(d.year-1)*((w-80)/Math.max(YEARS-1,1));
+      svg += `<text x="${x}" y="${h}" text-anchor="middle" font-size="9" fill="#999">${d.year}</text>`;
+    }
+  }
+  // Lines
+  let legendHTML = '';
+  for (let gi=0; gi<getters.length; gi++) {
+    const g = getters[gi];
+    const c = colors[gi];
+    const dashArr = gi >= 2 ? ' stroke-dasharray="6,3" opacity="0.6"' : '';
+    legendHTML += `<span class="legend-item"><span class="legend-dot" style="background:${c}${gi>=2?';opacity:0.6':''}"></span>${labels[gi]}</span>`;
+    let pts = [];
+    for (const d of data) {
+      const v = g(d);
+      if (v !== null && v !== undefined) {
+        const x = 60+(d.year-1)*((w-80)/Math.max(YEARS-1,1));
+        const y = zeroY - v*scale;
+        pts.push({x,y,d,v});
+      }
+    }
+    if (pts.length) {
+      svg += `<polyline points="${pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${c}" stroke-width="2.5"${dashArr}/>`;
+      for (const p of pts) {
+        svg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${c}"><title>${p.d.year}年目: ${fmtTooltip(p.v)}</title></circle>`;
+      }
+    }
+  }
+  return { svg: makeSVG(w, h, svg), legend: legendHTML };
+}
+
+function drawStackedBar(data, w, h) {
+  // 元金返済 vs 減価償却 の積み上げ棒グラフ
+  let maxV = 1;
+  for (const d of data) {
+    maxV = Math.max(maxV, d.principal, d.depreciation);
+  }
+  const barW = Math.max(6, (w-80)/YEARS - 2);
+  let svg = '';
+  // Grid
+  for (let i=0; i<5; i++) {
+    const v = maxV*i/4;
+    const y = h-20 - v/maxV*(h-40);
+    svg += `<text x="55" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${yen(v)}</text>`;
+    svg += `<line x1="60" y1="${y}" x2="${w-20}" y2="${y}" stroke="#eee" stroke-width="0.5"/>`;
+  }
+  for (const d of data) {
+    const x = 60 + (d.year-1)*((w-80)/Math.max(YEARS-1,1)) - barW/2;
+    const baseY = h-20;
+    // 減価償却（青）
+    const hDep = d.depreciation/maxV*(h-40);
+    svg += `<rect x="${x-barW/2-1}" y="${baseY-hDep}" width="${barW}" height="${Math.max(0.5,hDep)}" fill="${COLORS.navy}" opacity="0.6"><title>${d.year}年目 減価償却: ${yen(d.depreciation)}</title></rect>`;
+    // 元金返済（オレンジ）
+    const hPr = d.principal/maxV*(h-40);
+    svg += `<rect x="${x+barW/2+1}" y="${baseY-hPr}" width="${barW}" height="${Math.max(0.5,hPr)}" fill="${COLORS.orange}" opacity="0.7"><title>${d.year}年目 元金返済: ${yen(d.principal)}</title></rect>`;
+  }
+  // X labels
+  for (const d of data) {
+    if (d.year===1 || d.year%5===0 || d.year===YEARS) {
+      const x = 60+(d.year-1)*((w-80)/Math.max(YEARS-1,1));
+      svg += `<text x="${x}" y="${h}" text-anchor="middle" font-size="9" fill="#999">${d.year}</text>`;
+    }
+  }
+  return makeSVG(w, h, svg);
+}
+
+// ===================================================================
+// チャート描画
+// ===================================================================
+function renderCharts() {
+  const container = document.getElementById('charts-container');
+  const W = 800, H = 220;
+
+  const charts = [
+    {
+      title: '年次ATCF推移（税引後キャッシュフロー）',
+      id: 'modal-atcf',
+      desc: '毎年手元に残る（または持ち出す）実際のキャッシュ。ゼロを下回るとデッドクロス。',
+      getters: [d=>d.atcf],
+      colors: [COLORS.navy],
+      labels: ['ATCF'],
+      fmtY: v=>yen(v), fmtT: v=>yen(v),
+    },
+    {
+      title: '累積ATCF推移',
+      id: 'modal-cum',
+      desc: '保有期間中に得られたキャッシュフローの累計。',
+      getters: [d=>d.cumulative_atcf],
+      colors: [COLORS.green],
+      labels: ['累積ATCF'],
+      fmtY: v=>yen(v), fmtT: v=>yen(v),
+    },
+    {
+      title: 'IRR推移（各年売却想定）',
+      id: 'modal-irr',
+      desc: 'その年に売却した場合の投資全体リターン（年率換算）。ピークを過ぎると保有メリットが低下。',
+      getters: [d=>d.irr],
+      colors: [COLORS.navy],
+      labels: ['IRR'],
+      fmtY: v=>pct(v,1), fmtT: v=>pct(v,2),
+    },
+    {
+      title: '再投資ベース資産推移',
+      id: 'modal-rw',
+      desc: 'CFを再投資率5%で運用しながら保有し、その年に売却した場合の手元資金総額。ピークが資産最大化の売り時。',
+      getters: [d=>d.reinvested_wealth],
+      colors: [COLORS.gold],
+      labels: ['再投資資産'],
+      fmtY: v=>yen(v), fmtT: v=>yen(v),
+    },
+    {
+      title: 'エクイティ推移（時価 - ローン残高）',
+      id: 'modal-eq',
+      desc: '物件の推定時価からローン残高を引いた純資産。',
+      getters: [d=>d.equity],
+      colors: [COLORS.green],
+      labels: ['エクイティ'],
+      fmtY: v=>yen(v), fmtT: v=>yen(v),
+    },
+  ];
+
+  let html = '';
+  let modals = '';
+
+  for (const ch of charts) {
+    const result = drawLineChart(DATA, ch.getters, ch.colors, ch.labels, W, H, ch.fmtY, ch.fmtT);
+    html += `<div class="chart-box" onclick="openModal('${ch.id}')">
+      <span class="click-hint">クリックで拡大</span>
+      <h4>${ch.title}</h4>
+      ${result.svg}
+      <div class="legend">${result.legend}</div>
+    </div>`;
+
+    const bigResult = drawLineChart(DATA, ch.getters, ch.colors, ch.labels, W, 350, ch.fmtY, ch.fmtT);
+    modals += `<div class="modal-overlay" id="${ch.id}" onclick="closeModal(event)">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModalById('${ch.id}')">&times;</button>
+        <h3>${ch.title}</h3>
+        <p class="desc">${ch.desc}</p>
+        ${bigResult.svg}
+        <div class="legend">${bigResult.legend}</div>
+      </div>
+    </div>`;
+  }
+
+  // 元金返済 vs 減価償却
+  const crossSvg = drawStackedBar(DATA, W, H);
+  html += `<div class="chart-box" onclick="openModal('modal-cross')">
+    <span class="click-hint">クリックで拡大</span>
+    <h4>元金返済 vs 減価償却（デッドクロス構造分析）</h4>
+    ${crossSvg}
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:${COLORS.navy};opacity:0.6"></span>減価償却</span>
+      <span class="legend-item"><span class="legend-dot" style="background:${COLORS.orange};opacity:0.7"></span>元金返済</span>
+    </div>
+  </div>`;
+
+  const bigCrossSvg = drawStackedBar(DATA, W, 350);
+  modals += `<div class="modal-overlay" id="modal-cross" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeModalById('modal-cross')">&times;</button>
+      <h3>元金返済 vs 減価償却（デッドクロス構造分析）</h3>
+      <p class="desc">元金返済額（オレンジ）が減価償却額（青）を上回ると、帳簿上の運営費＜実際の支払いとなり、
+      課税所得が膨らんでキャッシュフローが悪化する（デッドクロスの構造的原因）。</p>
+      ${bigCrossSvg}
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:${COLORS.navy};opacity:0.6"></span>減価償却</span>
+        <span class="legend-item"><span class="legend-dot" style="background:${COLORS.orange};opacity:0.7"></span>元金返済</span>
+      </div>
+    </div>
+  </div>`;
+
+  container.innerHTML = html;
+  document.body.insertAdjacentHTML('beforeend', modals);
+}
+
+// ===================================================================
+// 感度分析エンジン（クライアントサイド再計算）
+// ===================================================================
+const USEFUL_LIFE = {'RC':47,'SRC':47,'S造':34,'木造':22,'W造':22};
+
+// 累進課税テーブル（所得税）+ 住民税10% — Python版と同一ロジック
+const TAX_BRACKETS = [
+  [1_950_000, 0.05, 0],
+  [3_300_000, 0.10, 97_500],
+  [6_950_000, 0.20, 427_500],
+  [9_000_000, 0.23, 636_000],
+  [18_000_000, 0.33, 1_536_000],
+  [40_000_000, 0.40, 2_796_000],
+  [Infinity, 0.45, 4_796_000],
+];
+function calcTax(taxableIncome) {
+  if (taxableIncome <= 0) return 0;
+  // Proformerで税率が指定されている場合はその固定税率を使う
+  if (BASE.tax_rate_override !== null) {
+    return taxableIncome * BASE.tax_rate_override;
+  }
+  // 指定なし → 累進課税テーブル（所得税） + 住民税10%
+  let incomeTax = 0;
+  for (const [upper, rate, deduction] of TAX_BRACKETS) {
+    if (taxableIncome <= upper) { incomeTax = taxableIncome * rate - deduction; break; }
+  }
+  const residentTax = taxableIncome * 0.10;
+  return incomeTax + residentTax;
+}
+
+function sensCalc() {
+  const rate = parseFloat(document.getElementById('sl-rate').value)/100;
+  const vac = parseFloat(document.getElementById('sl-vacancy').value)/100;
+  const exitCap = parseFloat(document.getElementById('sl-exit-cap').value)/100;
+  const rentGr = parseFloat(document.getElementById('sl-rent-growth').value)/100;
+  const saleYr = parseInt(document.getElementById('sl-sale-year').value);
+  const discountRate = parseFloat(document.getElementById('sl-discount').value)/100;
+  const reinvRate = parseFloat(document.getElementById('sl-reinv').value)/100;
+  const safeRate = parseFloat(document.getElementById('sl-safe').value)/100;
+  const opexGr = parseFloat(document.getElementById('sl-opex-growth').value)/100;
+
+  document.getElementById('lbl-rate').textContent = (rate*100).toFixed(1)+'%';
+  document.getElementById('lbl-vacancy').textContent = (vac*100).toFixed(0)+'%';
+  document.getElementById('lbl-exit-cap').textContent = (exitCap*100).toFixed(1)+'%';
+  document.getElementById('lbl-rent-growth').textContent = (rentGr>=0?'+':'')+(rentGr*100).toFixed(1)+'%';
+  document.getElementById('lbl-sale-year').textContent = saleYr+'年目';
+  document.getElementById('lbl-discount').textContent = (discountRate*100).toFixed(1)+'%';
+  document.getElementById('lbl-reinv').textContent = (reinvRate*100).toFixed(1)+'%';
+  document.getElementById('lbl-safe').textContent = (safeRate*100).toFixed(1)+'%';
+  document.getElementById('lbl-opex-growth').textContent = (opexGr>=0?'+':'')+(opexGr*100).toFixed(1)+'%';
+
+  const P = BASE;
+  const loanAmt = P.loan_amount;
+  const equity = P.equity;
+  const term = P.loan_term;
+  const structure = P.structure;
+  const age = P.age;
+  const bRatio = P.building_ratio;
+  const acqPrice = P.acq_price;
+  const gpi0 = P.gpi;
+  const opex0 = P.opex;
+
+  // Remaining useful life
+  const statutory = USEFUL_LIFE[structure] || 47;
+  const remLife = age >= statutory ? Math.max(2, Math.floor(statutory*0.2)) : statutory - age;
+  const bldgVal = acqPrice * bRatio;
+  const annualDep = bldgVal / remLife;
+
+  // Loan schedule
+  const mr = rate/12;
+  const nm = term*12;
+  let monthlyPmt = rate===0 ? loanAmt/(term*12) : loanAmt*mr*Math.pow(1+mr,nm)/(Math.pow(1+mr,nm)-1);
+
+  let balance = loanAmt;
+  const years = [];
+  let cumATCF = 0;
+  let cumBTCF = 0;
+  let cumDep = 0;
+  let dcYear = null;
+
+  for (let yr=1; yr<=YEARS; yr++) {
+    const g = Math.pow(1+rentGr, yr-1);
+    const gpiYr = gpi0 * g;
+    const egiYr = gpiYr * (1-vac);
+    const opexYr = opex0 * Math.pow(1 + opexGr, yr-1);
+    const noiYr = egiYr - opexYr;
+
+    // Loan
+    let interestYr = 0, principalYr = 0;
+    if (balance > 0 && yr <= term) {
+      for (let m=0; m<12; m++) {
+        const intM = balance * mr;
+        const prinM = Math.min(monthlyPmt - intM, balance);
+        interestYr += intM;
+        principalYr += prinM;
+        balance -= prinM;
+        balance = Math.max(0, balance);
+      }
+    }
+    const ads = interestYr + principalYr;
+
+    const btcf = noiYr - ads;
+    cumBTCF += btcf;
+    const dep = yr <= remLife ? annualDep : 0;
+    cumDep += dep;
+    const bookVal = acqPrice - cumDep;
+    const taxIncome = noiYr - interestYr - dep;
+    const tax = calcTax(taxIncome);
+    const atcf = btcf - tax;
+    cumATCF += atcf;
+    if (atcf < 0 && dcYear === null) dcYear = yr;
+
+    // Sale sim
+    const salePrice = exitCap > 0 ? noiYr / exitCap : 0;
+    const saleCost = salePrice * 0.04;
+    const capGain = salePrice - bookVal - saleCost;
+    const cgTax = capGain > 0 ? capGain * (yr > 5 ? 0.20315 : 0.3963) : 0;
+    const saleProceedsBT = salePrice - saleCost - balance;
+    const saleProceedsAT = salePrice - saleCost - cgTax - balance;
+
+    years.push({
+      year:yr, noi:noiYr, ads, btcf, dep, principal:principalYr,
+      interest:interestYr, taxIncome, tax,
+      atcf, cumATCF, cumBTCF,
+      salePrice, saleCost, capGain, cgTax,
+      saleProceedsBT, saleProceedsAT, balance
+    });
+  }
+
+  // --- 資本蓄積計算（各年売却想定） ---
+  // プラスCFを再投資率で複利運用したFV + 税引後売却手取り
+  for (let yr=1; yr<=YEARS; yr++) {
+    const idx = yr - 1;
+    let fvPositive = 0;
+    let pvNegative = 0;
+    for (let t=0; t<yr; t++) {
+      const cf = years[t].atcf;
+      const yearsRemaining = yr - t - 1;
+      if (cf >= 0) {
+        fvPositive += cf * Math.pow(1 + reinvRate, yearsRemaining);
+      } else {
+        pvNegative += Math.abs(cf) / Math.pow(1 + safeRate, t + 1);
+      }
+    }
+    years[idx].fvPositiveCF = fvPositive;
+    years[idx].pvNegativeCF = pvNegative;
+    years[idx].capitalAccum = fvPositive + years[idx].saleProceedsAT;  // 資本蓄積（税引後）
+    years[idx].capitalAccumBT = fvPositive + years[idx].saleProceedsBT;  // 資本蓄積（税引前）
+  }
+
+  // --- 売却想定年のデータ ---
+  const sy = years[saleYr - 1];
+
+  // --- NPV計算（税引後ATCF + 税引後売却手取りベース） ---
+  let npvAT = -equity;
+  for (let i = 0; i < saleYr; i++) {
+    const cf = (i === saleYr - 1) ? years[i].atcf + years[i].saleProceedsAT : years[i].atcf;
+    npvAT += cf / Math.pow(1 + discountRate, i + 1);
+  }
+
+  // --- NPV計算（税引前BTCF + 税引前売却手取りベース） ---
+  let npvBT = -equity;
+  for (let i = 0; i < saleYr; i++) {
+    const cf = (i === saleYr - 1) ? years[i].btcf + years[i].saleProceedsBT : years[i].btcf;
+    npvBT += cf / Math.pow(1 + discountRate, i + 1);
+  }
+
+  // --- IRR計算（Newton-Raphson法） ---
+  function calcIRR(cashflows) {
+    let r = 0.10;
+    for (let iter = 0; iter < 200; iter++) {
+      let npv = 0, dnpv = 0;
+      for (let t = 0; t < cashflows.length; t++) {
+        npv += cashflows[t] / Math.pow(1 + r, t);
+        if (t > 0) dnpv -= t * cashflows[t] / Math.pow(1 + r, t + 1);
+      }
+      if (Math.abs(dnpv) < 1e-12) break;
+      const newR = r - npv / dnpv;
+      if (Math.abs(newR - r) < 1e-8) { r = newR; break; }
+      r = newR;
+      if (r < -0.99 || r > 10) return null;
+    }
+    return isFinite(r) ? r : null;
+  }
+
+  // 税引後IRR
+  const cfAT = [-equity];
+  for (let i = 0; i < saleYr; i++) {
+    cfAT.push(i === saleYr - 1 ? years[i].atcf + years[i].saleProceedsAT : years[i].atcf);
+  }
+  const irrAT = calcIRR(cfAT);
+
+  // 税引前IRR
+  const cfBT = [-equity];
+  for (let i = 0; i < saleYr; i++) {
+    cfBT.push(i === saleYr - 1 ? years[i].btcf + years[i].saleProceedsBT : years[i].btcf);
+  }
+  const irrBT = calcIRR(cfBT);
+
+  // KPI
+  const capRateSens = years[0].noi / acqPrice;
+  const dcStr = dcYear ? dcYear+'年目' : YEARS+'年以内なし';
+  const dscr = years[0].noi / years[0].ads;
+
+  // 資本蓄積最大化年
+  let bestCapYr = 1, bestCapVal = -Infinity;
+  for (const y of years) {
+    if (y.capitalAccum > bestCapVal) { bestCapVal = y.capitalAccum; bestCapYr = y.year; }
+  }
+
+  // 利益（資本蓄積 - 自己資金）
+  const profitAT = sy.capitalAccum - equity;
+  const profitBT = sy.capitalAccumBT - equity;
+
+  const isChanged = (a,b) => Math.abs(a-b) > 0.001;
+  const origRate = BASE.interest_rate/100;
+
+  // 譲渡税率表示
+  const cgTaxType = saleYr > 5 ? '長期20.3%' : '短期39.6%';
+
+  let resultHTML = `
+    <div style="grid-column:1/-1;padding:8px 0;border-bottom:2px solid var(--navy);margin-bottom:4px">
+      <span style="font-size:14px;font-weight:700;color:var(--navy)">${saleYr}年目売却シミュレーション</span>
+      <span style="font-size:11px;color:#888;margin-left:12px">割引率: ${(discountRate*100).toFixed(1)}% | 譲渡税: ${cgTaxType} | 再投資率: ${(reinvRate*100).toFixed(1)}%</span>
+    </div>
+
+    <div class="sens-kpi"><div class="label">NOI（税引前）</div><div class="value">${yen(sy.noi)}</div></div>
+    <div class="sens-kpi ${isChanged(rate,origRate)?'changed':''}"><div class="label">ADS</div><div class="value">${yen(sy.ads)}</div></div>
+    <div class="sens-kpi"><div class="label">BTCF（税引前CF）</div><div class="value" style="color:${sy.btcf<0?COLORS.red:COLORS.navy}">${yen(sy.btcf)}</div></div>
+    <div class="sens-kpi ${sy.atcf<0?'changed':''}"><div class="label">ATCF（税引後CF）</div><div class="value" style="color:${sy.atcf<0?COLORS.red:COLORS.navy}">${yen(sy.atcf)}</div></div>
+
+    <div class="sens-kpi"><div class="label">推定売却価格</div><div class="value">${yen(sy.salePrice)}</div></div>
+    <div class="sens-kpi"><div class="label">売却手取り（税引前）</div><div class="value">${yen(sy.saleProceedsBT)}</div></div>
+    <div class="sens-kpi"><div class="label">譲渡税</div><div class="value" style="color:var(--red)">${yen(sy.cgTax)}</div></div>
+    <div class="sens-kpi"><div class="label">売却手取り（税引後）</div><div class="value" style="color:${sy.saleProceedsAT<0?COLORS.red:COLORS.green}">${yen(sy.saleProceedsAT)}</div></div>
+
+    <div style="grid-column:1/-1;padding:4px 0;border-top:1px solid #e2e8f0;margin-top:4px"></div>
+
+    <div class="sens-kpi ${npvAT<0?'changed':''}"><div class="label">NPV（税引後）</div><div class="value" style="color:${npvAT<0?COLORS.red:COLORS.green};font-size:20px">${yen(npvAT)}</div></div>
+    <div class="sens-kpi"><div class="label">NPV（税引前）</div><div class="value" style="color:${npvBT<0?COLORS.red:COLORS.navy}">${yen(npvBT)}</div></div>
+    <div class="sens-kpi"><div class="label">IRR（税引後）</div><div class="value" style="font-size:20px">${irrAT !== null ? pct(irrAT*100, 2) : '-'}</div></div>
+    <div class="sens-kpi"><div class="label">IRR（税引前）</div><div class="value">${irrBT !== null ? pct(irrBT*100, 2) : '-'}</div></div>
+
+    <div style="grid-column:1/-1;padding:4px 0;border-top:2px solid var(--gold);margin-top:4px"></div>
+    <div style="grid-column:1/-1;padding:4px 0;margin-bottom:4px">
+      <span style="font-size:13px;font-weight:700;color:#92400E">資本蓄積（CF再投資運用 + 売却手取り）</span>
+      <span style="font-size:10px;color:#888;margin-left:8px">再投資率${(reinvRate*100).toFixed(1)}%でプラスCFを複利運用</span>
+    </div>
+
+    <div class="sens-kpi"><div class="label">CF再投資運用額（FV）</div><div class="value">${yen(sy.fvPositiveCF)}</div></div>
+    <div class="sens-kpi"><div class="label">赤字備え積立PV</div><div class="value" style="color:${sy.pvNegativeCF>0?COLORS.red:'inherit'}">${sy.pvNegativeCF > 0 ? yen(sy.pvNegativeCF) : '-'}</div></div>
+    <div class="sens-kpi" style="background:#FFF8E1"><div class="label">資本蓄積（税引後）</div><div class="value" style="color:#92400E;font-size:20px">${yen(sy.capitalAccum)}</div></div>
+    <div class="sens-kpi"><div class="label">資本蓄積（税引前）</div><div class="value">${yen(sy.capitalAccumBT)}</div></div>
+    <div class="sens-kpi ${profitAT<0?'changed':''}"><div class="label">利益（税引後 - 自己資金）</div><div class="value" style="color:${profitAT<0?COLORS.red:COLORS.green};font-size:18px">${yen(profitAT)}</div></div>
+    <div class="sens-kpi"><div class="label">資本蓄積 最大化年</div><div class="value">${bestCapYr}年目（${yen(bestCapVal)}）</div></div>
+
+    <div style="grid-column:1/-1;padding:4px 0;border-top:1px solid #e2e8f0;margin-top:4px"></div>
+    <div class="sens-kpi"><div class="label">Cap Rate</div><div class="value">${pct(capRateSens*100,1)}</div></div>
+    <div class="sens-kpi"><div class="label">DSCR</div><div class="value" style="color:${dscr<1.3?COLORS.red:COLORS.green}">${dscr.toFixed(2)}</div></div>
+    <div class="sens-kpi ${dcYear&&dcYear<=YEARS?'changed':''}"><div class="label">デッドクロス</div><div class="value">${dcStr}</div></div>
+    <div class="sens-kpi"><div class="label">自己資金</div><div class="value">${yen(equity)}</div></div>
+  `;
+  document.getElementById('sens-result').innerHTML = resultHTML;
+
+  // Chart 1: ATCF + sale proceeds
+  const sensResult = drawLineChart(years,
+    [d=>d.atcf, d=>d.saleProceedsAT],
+    [COLORS.navy, COLORS.gold],
+    ['ATCF（税引後）', '売却手取り（税引後）'],
+    800, 200,
+    v=>yen(v), v=>yen(v)
+  );
+
+  // Add vertical line at sale year
+  const saleX = 60 + (saleYr-1)*((800-80)/Math.max(YEARS-1,1));
+  const markerSvg = `<line x1="${saleX}" y1="0" x2="${saleX}" y2="200" stroke="${COLORS.red}" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="${saleX}" y="12" text-anchor="middle" font-size="10" fill="${COLORS.red}" font-weight="700">${saleYr}年目売却</text>`;
+  const chartSvg1 = sensResult.svg.replace('</svg>', markerSvg + '</svg>');
+
+  // Chart 2: 資本蓄積推移
+  const capResult = drawLineChart(years,
+    [d=>d.capitalAccum, d=>d.capitalAccumBT],
+    [COLORS.gold, COLORS.orange],
+    ['資本蓄積（税引後）', '資本蓄積（税引前）'],
+    800, 200,
+    v=>yen(v), v=>yen(v)
+  );
+  const capMarker = `<line x1="${saleX}" y1="0" x2="${saleX}" y2="200" stroke="${COLORS.red}" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="${saleX}" y="12" text-anchor="middle" font-size="10" fill="${COLORS.red}" font-weight="700">${saleYr}年目</text>`;
+  const chartSvg2 = capResult.svg.replace('</svg>', capMarker + '</svg>');
+
+  document.getElementById('sens-chart').innerHTML = `
+    <h4 style="color:var(--navy);font-size:14px;margin-bottom:8px;">ATCF & 売却手取り推移（税引後）</h4>
+    ${chartSvg1}
+    <div class="legend">${sensResult.legend}
+      <span class="legend-item"><span class="legend-dot" style="background:${COLORS.red}"></span>売却想定年</span>
+    </div>
+
+    <h4 style="color:#92400E;font-size:14px;margin:20px 0 8px;">資本蓄積推移（再投資率${(reinvRate*100).toFixed(1)}%）</h4>
+    <p style="font-size:11px;color:#666;margin-bottom:8px;">
+      各年のプラスCFを再投資率で複利運用した累計額 + その年に売却した場合の手取り = 実際に手元に残る総額
+    </p>
+    ${chartSvg2}
+    <div class="legend">${capResult.legend}
+      <span class="legend-item"><span class="legend-dot" style="background:${COLORS.red}"></span>売却想定年</span>
+    </div>
+
+    <p style="font-size:11px;color:#888;margin-top:12px;">
+      NPV判定: ${npvAT >= 0 ? '<span style="color:'+COLORS.green+';font-weight:700">投資価値あり（NPV > 0）</span>' : '<span style="color:'+COLORS.red+';font-weight:700">投資価値なし（NPV < 0）— 割引率または条件の見直しが必要</span>'}
+    </p>
+
+    <div style="background:#FFF8E1;border-left:4px solid #F59E0B;padding:14px 16px;margin-top:20px;border-radius:0 6px 6px 0;font-size:11px;color:#78350F;line-height:1.7;">
+      <strong style="font-size:12px;">感度分析の計算精度について</strong><br>
+      本感度分析はProformer本体とは独立したJavaScript簡易エンジンで再計算しています。以下の前提・制約にご注意ください。<br><br>
+      <strong>所得税:</strong> ${BASE.tax_rate_override !== null
+        ? 'Proformer設定値（固定税率 ' + (BASE.tax_rate_override*100).toFixed(1) + '%）を使用'
+        : '不動産所得のみを対象とした累進課税テーブル（5%〜45%＋住民税10%）で計算。<strong>他の所得（給与・事業等）との合算は未反映</strong>のため、実際の税率と乖離する場合があります'}<br>
+      <strong>運営費:</strong> 初年度の運営費額（NOIとEGIの差額）を基準に年1%成長で推計。個別の修繕費・管理費の変動は未反映<br>
+      <strong>売却価格:</strong> 各年のNOI &divide; 出口Cap Rateで推計。市場実勢とは異なります<br>
+      <strong>ローン:</strong> 月次元利均等返済で計算（Proformer本体と同一方式）<br>
+      <strong>法人の場合:</strong> 法人税率は未対応。個人所有を前提としています<br><br>
+      正確な投資判断には、<strong>Proformer本体での再計算</strong>または税理士への確認を推奨します。
+    </div>
+  `;
+}
+
+// ===================================================================
+// タブ切替
+// ===================================================================
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'tab-sensitivity') sensCalc();
+}
+
+// ===================================================================
+// モーダル
+// ===================================================================
+function openModal(id) { document.getElementById(id).classList.add('active'); document.body.style.overflow='hidden'; }
+function closeModal(e) { e.currentTarget.classList.remove('active'); document.body.style.overflow=''; }
+function closeModalById(id) { document.getElementById(id).classList.remove('active'); document.body.style.overflow=''; }
+document.addEventListener('keydown', e => {
+  if(e.key==='Escape') { document.querySelectorAll('.modal-overlay.active').forEach(m=>m.classList.remove('active')); document.body.style.overflow=''; }
+});
+
+// ===================================================================
+// 初期化
+// ===================================================================
+renderCharts();
+['sl-rate','sl-vacancy','sl-exit-cap','sl-rent-growth','sl-opex-growth','sl-sale-year','sl-discount','sl-reinv','sl-safe'].forEach(id => {
+  document.getElementById(id).addEventListener('input', sensCalc);
+});
+</script>
+</body>
+</html>

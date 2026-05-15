@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M邸 中間分析 — 6代替案比較（金融資産7.2%修正版）</title>
+<style>
+  :root { --navy:#1F4E79; --red:#DC2626; --green:#2E8B57; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Yu Gothic','Hiragino Sans','Segoe UI',sans-serif; background:#f5f7fa; color:#333; }
+  .container { max-width:1300px; margin:0 auto; padding:24px; }
+  .header { background:linear-gradient(135deg,#1a1a2e,#16213e); color:#fff; padding:36px 44px; border-radius:12px 12px 0 0; }
+  .header h1 { font-size:28px; letter-spacing:2px; }
+  .header .sub { font-size:14px; opacity:.6; margin-top:8px; }
+  .header .owner { margin-top:12px; font-size:13px; opacity:.8; padding:8px 16px; background:rgba(255,255,255,.08); border-radius:6px; display:inline-block; }
+  .section { background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.06); margin-bottom:2px; }
+  .section:last-of-type { border-radius:0 0 12px 12px; margin-bottom:24px; }
+  .section-title { background:#f0f4f8; padding:16px 28px; font-size:16px; font-weight:700; color:var(--navy); border-bottom:2px solid var(--navy); }
+  .summary-scroll { overflow-x:auto; }
+  .summary-scroll table { width:100%; border-collapse:collapse; font-size:13px; }
+  .summary-scroll th { padding:12px 14px; text-align:center; color:#fff; font-size:12px; white-space:nowrap; }
+  .summary-scroll th:first-child { background:var(--navy); text-align:left; }
+  .summary-scroll td { padding:10px 14px; border-bottom:1px solid #eee; }
+  .summary-scroll td.metric { font-weight:600; color:#444; white-space:nowrap; background:#f8fafc; min-width:160px; }
+  .summary-scroll td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .summary-scroll td.num.best { background:#E8F5E9; color:#1B5E20; font-weight:700; }
+  .verdict { padding:20px 28px; display:flex; gap:16px; align-items:center; background:#f0f4f8; }
+  .verdict-badge { padding:8px 20px; border-radius:6px; font-weight:700; font-size:15px; color:#fff; flex-shrink:0; }
+  .verdict-text { font-size:13px; color:#555; line-height:1.7; }
+  .chart-area { padding:24px 28px; }
+  .chart-area h4 { font-size:14px; color:var(--navy); margin-bottom:12px; }
+  .chart-area svg { width:100%; height:auto; display:block; }
+  .chart-legend { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-size:11px; }
+  .chart-legend span { display:flex; align-items:center; gap:4px; }
+  .chart-legend .dot { width:12px; height:3px; border-radius:1px; }
+  .sc-tabs { display:flex; gap:0; padding:0 28px; background:#f0f4f8; border-bottom:2px solid #ddd; overflow-x:auto; }
+  .sc-tab { padding:12px 18px; font-size:12px; font-weight:600; color:#888; cursor:pointer; border:none; background:none; border-bottom:3px solid transparent; margin-bottom:-2px; white-space:nowrap; transition:all .2s; }
+  .sc-tab.active { color:var(--navy); border-bottom-color:currentColor; background:#fff; }
+  .sc-tab:hover { color:var(--navy); }
+  .detail-card { padding:0; }
+  .detail-header { padding:20px 28px; }
+  .detail-header h3 { font-size:20px; margin-bottom:8px; }
+  .detail-desc { font-size:13px; color:#666; line-height:1.7; }
+  .detail-kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; padding:16px 28px; }
+  .dk { background:#f8fafc; border-radius:6px; padding:10px; text-align:center; }
+  .dk.good { background:#E8F5E9; }
+  .dk.bad { background:#FEE2E2; }
+  .dk-l { display:block; font-size:10px; color:#888; }
+  .dk-v { display:block; font-size:16px; font-weight:700; color:var(--navy); margin-top:2px; font-variant-numeric:tabular-nums; }
+  .dk.good .dk-v { color:#1B5E20; }
+  .dk.bad .dk-v { color:var(--red); }
+  .detail-table { padding:16px 28px; overflow-x:auto; }
+  .detail-table table { width:100%; border-collapse:collapse; font-size:12px; }
+  .detail-table th { background:var(--navy); color:#fff; padding:8px; text-align:center; }
+  .detail-table td { padding:6px 8px; border-bottom:1px solid #eee; }
+  .detail-table td.yr { text-align:center; font-weight:600; }
+  .detail-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .detail-table td.danger { color:var(--red); background:#FDE8E8; font-weight:700; }
+  .highlight-box { margin:16px 28px; padding:20px 24px; border-radius:8px; border-left:5px solid; }
+  .highlight-box.positive { background:#E8F5E9; border-color:#2E8B57; }
+  .highlight-box.warning { background:#FFF8E1; border-color:#F59E0B; }
+  .highlight-box h4 { font-size:15px; margin-bottom:8px; }
+  .highlight-box p { font-size:13px; line-height:1.7; color:#555; }
+  .highlight-box .big-num { font-size:28px; font-weight:700; color:#1B5E20; margin:8px 0; }
+  .comparison-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 28px; }
+  .comp-card { background:#f8fafc; border-radius:8px; padding:16px; border:2px solid #e5e7eb; }
+  .comp-card.winner { border-color:#2E8B57; background:#f0fdf4; }
+  .comp-card h5 { font-size:13px; color:#888; margin-bottom:8px; }
+  .comp-card .val { font-size:22px; font-weight:700; }
+  .comp-card.winner .val { color:#1B5E20; }
+  .disclaimer { padding:16px 28px; font-size:10px; color:#999; font-style:italic; border-top:1px solid #eee; }
+  @media print { body { padding:0; background:#fff; } .section { box-shadow:none; page-break-inside:avoid; } }
+  @media (max-width:768px) { .comparison-grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>M邸 中間分析レポート</h1>
+    <div class="sub">6つの代替案を10年間で比較 | 作成日: 2026年05月15日 | 金融資産: 年7.2%運用（修正版） | Powered by Proformer</div>
+    <div class="owner">M氏の前提: 先祖代々の土地 — 売却の意向なし（継続保有がベースライン）</div>
+  </div>
+
+  <!-- 分析結論ハイライト -->
+  <div class="section">
+    <div class="section-title">分析結論 — 金融資産運用が圧倒的に優位</div>
+    <div class="highlight-box positive">
+      <h4>売却＆金融資産運用（年7.2%）が全指標で最善</h4>
+      <div class="big-num">10年後 資本蓄積: 約6億48万円（税引後）</div>
+      <p>
+        初期投資 ¥333,556,849 を年7.2%で10年間複利運用 → 税引前 ¥668,525,098。<br>
+        譲渡益 ¥334,968,249 に対し税額（20.315%）¥68,048,800 を控除 → <strong>税引後 ¥600,476,298</strong>。<br>
+        <strong>NPVが唯一プラス（¥+35,083,509）</strong>であり、IRR 6.06%・CGR 6.06% と他の代替案を大きく上回る。
+      </p>
+    </div>
+    <div class="highlight-box warning">
+      <h4>M氏が売却しない場合の最善策</h4>
+      <p>
+        土地を保有する前提では「駐車場活用」が最善（IRR 1.33% / CGR 1.44%）。ただしNPVはマイナス（¥-96,348,763）。<br>
+        金融資産運用との10年後の差額は <strong>約2.15億円</strong>（600,476,298 - 385,159,705 = 215,316,593）。<br>
+        この差額が「先祖の土地を守るコスト」となる。
+      </p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">エグゼクティブサマリー — 10年後の比較</div>
+    <div class="summary-scroll">
+      <table>
+        <thead><tr><th>指標</th><th style="background:#6B7280;min-width:110px">継続保有</th><th style="background:#2E8B57;min-width:110px">駐車場</th><th style="background:#E07B39;min-width:110px">リフォーム</th><th style="background:#1F4E79;min-width:110px">建て替え</th><th style="background:#7C3AED;min-width:110px">買い替え</th><th style="background:#DC2626;min-width:110px">金融資産</th></tr></thead>
+        <tbody>
+<tr><td class="metric">初期投資額（年0）</td><td class="num">&#165;-333,556,849</td><td class="num">&#165;-333,556,849</td><td class="num">&#165;-333,556,849</td><td class="num">&#165;-333,556,849</td><td class="num">&#165;-333,556,849</td><td class="num">&#165;-333,556,849</td></tr>
+<tr><td class="metric">IRR</td><td class="num">-0.06%</td><td class="num">1.33%</td><td class="num">-0.66%</td><td class="num">-</td><td class="num">-1.48%</td><td class="num best">6.06%</td></tr>
+<tr><td class="metric">NPV（割引率5%）</td><td class="num">&#165;-130,362,240</td><td class="num">&#165;-96,348,763</td><td class="num">&#165;-141,985,306</td><td class="num">&#165;-542,783,075</td><td class="num">&#165;-151,265,645</td><td class="num best">&#165;+35,083,509</td></tr>
+<tr><td class="metric">ATCF合計（10年間）</td><td class="num">&#165;-2,050,604</td><td class="num">&#165;45,048,498</td><td class="num">&#165;-21,331,259</td><td class="num">&#165;-616,750,046</td><td class="num">&#165;-44,387,424</td><td class="num best">&#165;266,919,449</td></tr>
+<tr><td class="metric">10年目CF（売却込み）</td><td class="num">&#165;333,347,688</td><td class="num">&#165;349,335,460</td><td class="num">&#165;315,651,439</td><td class="num">&#165;-71,675,279</td><td class="num">&#165;263,571,339</td><td class="num best">&#165;600,476,298</td></tr>
+<tr><td class="metric">CGR（資本成長率）</td><td class="num">-0.05%</td><td class="num">1.44%</td><td class="num">-0.64%</td><td class="num">-</td><td class="num">-1.21%</td><td class="num best">6.06%</td></tr>
+<tr><td class="metric">調整後投資額</td><td class="num">&#165;-335,225,786</td><td class="num">&#165;-333,950,966</td><td class="num">&#165;-336,529,580</td><td class="num">&#165;-572,185,925</td><td class="num">&#165;-333,556,849</td><td class="num">&#165;-333,556,849</td></tr>
+<tr><td class="metric">10年目 資本蓄積FV</td><td class="num">&#165;333,556,849</td><td class="num">&#165;385,159,705</td><td class="num">&#165;315,651,439</td><td class="num">&#165;0</td><td class="num">&#165;295,199,234</td><td class="num best">&#165;600,476,298</td></tr>
+</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="verdict">
+      <span class="verdict-badge" style="background:#DC2626">結論</span>
+      <div class="verdict-text">
+        <strong>金融資産運用（年7.2%）が唯一NPVプラス</strong> — 割引率5%を上回るリターンが見込める唯一の選択肢。IRR 6.06%は2位の駐車場（1.33%）を大きく引き離す。<br>
+        <strong>売却が許容されるなら「金融資産運用」一択。</strong>10年後の資本蓄積は約6億円で、駐車場（3.85億円）より2.15億円多い。<br>
+        <strong>土地を保有し続ける前提では「駐車場活用」が最善</strong>（IRR 1.33% / CGR 1.44%）。安定収入があり、リスクが最も低い。<br>
+        <strong>継続保有は毎年約20万円の持ち出しが10年間続き、資産価値が目減りする。</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- 金融資産 vs 駐車場 比較 -->
+  <div class="section">
+    <div class="section-title">Top2比較 — 金融資産 vs 駐車場</div>
+    <div class="comparison-grid">
+      <div class="comp-card winner">
+        <h5>1位: 売却＆金融資産運用（年7.2%）</h5>
+        <div class="val">&#165;600,476,298</div>
+        <p style="font-size:12px;color:#666;margin-top:4px">10年目資本蓄積FV（税引後）</p>
+        <p style="font-size:11px;color:#888;margin-top:8px">IRR 6.06% / NPV +&#165;35,083,509 / CGR 6.06%</p>
+      </div>
+      <div class="comp-card">
+        <h5>2位: 駐車場活用</h5>
+        <div class="val" style="color:var(--navy)">&#165;385,159,705</div>
+        <p style="font-size:12px;color:#666;margin-top:4px">10年目資本蓄積FV</p>
+        <p style="font-size:11px;color:#888;margin-top:8px">IRR 1.33% / NPV -&#165;96,348,763 / CGR 1.44%</p>
+      </div>
+    </div>
+    <div class="highlight-box warning" style="margin-top:0">
+      <p><strong>差額: &#165;215,316,593（約2.15億円）</strong> — これが「先祖の土地を守る10年間のコスト」</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">比較チャート（Proformer算出ATCF）</div>
+    <div class="chart-area">
+      <h4>年次ATCF推移</h4>
+      <div id="chart-atcf"></div>
+      <h4 style="margin-top:24px;">累積ATCF推移</h4>
+      <div id="chart-cum"></div>
+      <h4 style="margin-top:24px;">10年目 資本蓄積FV 比較</h4>
+      <div id="chart-fv"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">各代替案 詳細</div>
+    <div class="sc-tabs"><button class="sc-tab" data-idx="0" style="border-bottom-color:#6B7280" onclick="showDetail(0)">継続保有</button><button class="sc-tab" data-idx="1" style="border-bottom-color:#2E8B57" onclick="showDetail(1)">駐車場</button><button class="sc-tab" data-idx="2" style="border-bottom-color:#E07B39" onclick="showDetail(2)">リフォーム</button><button class="sc-tab" data-idx="3" style="border-bottom-color:#1F4E79" onclick="showDetail(3)">建て替え</button><button class="sc-tab" data-idx="4" style="border-bottom-color:#7C3AED" onclick="showDetail(4)">買い替え</button><button class="sc-tab" data-idx="5" style="border-bottom-color:#DC2626" onclick="showDetail(5)">金融資産</button></div>
+    <div id="detail-container">
+        <div class="detail-card" id="detail-0" style="display:none;border-top:4px solid #6B7280">
+          <div class="detail-header" style="background:#6B728010">
+            <h3 style="color:#6B7280">継続保有</h3>
+            <p class="detail-desc">相続した不動産をそのまま保有。収入なし、固定資産税・維持費のみ発生。M氏の意向：先祖代々の土地のため売却しない。</p>
+          </div>
+          <div class="detail-kpi">
+            <div class="dk"><span class="dk-l">初期投資</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk"><span class="dk-l">IRR</span><span class="dk-v">-0.06%</span></div>
+            <div class="dk bad"><span class="dk-l">NPV</span><span class="dk-v">&#165;-130,362,240</span></div>
+            <div class="dk"><span class="dk-l">ATCF合計</span><span class="dk-v">&#165;-2,050,604</span></div>
+            <div class="dk"><span class="dk-l">CGR（資本成長率）</span><span class="dk-v">-0.05%</span></div>
+            <div class="dk"><span class="dk-l">調整後投資額</span><span class="dk-v">&#165;-335,225,786</span></div>
+            <div class="dk"><span class="dk-l">10年目FV</span><span class="dk-v">&#165;333,556,849</span></div>
+            <div class="dk"><span class="dk-l">10年目CF（売却込）</span><span class="dk-v">&#165;333,347,688</span></div>
+          </div>
+          <div class="detail-table">
+            <table>
+              <thead><tr><th>年</th><th>ATCF</th><th>累積ATCF</th></tr></thead>
+              <tbody><tr>
+              <td class="yr">1</td>
+              <td class="num danger">&#165;-201,000</td>
+              <td class="num">&#165;-201,000</td>
+            </tr><tr>
+              <td class="yr">2</td>
+              <td class="num danger">&#165;-201,000</td>
+              <td class="num">&#165;-402,000</td>
+            </tr><tr>
+              <td class="yr">3</td>
+              <td class="num danger">&#165;-203,010</td>
+              <td class="num">&#165;-605,010</td>
+            </tr><tr>
+              <td class="yr">4</td>
+              <td class="num danger">&#165;-203,010</td>
+              <td class="num">&#165;-808,020</td>
+            </tr><tr>
+              <td class="yr">5</td>
+              <td class="num danger">&#165;-205,040</td>
+              <td class="num">&#165;-1,013,060</td>
+            </tr><tr>
+              <td class="yr">6</td>
+              <td class="num danger">&#165;-205,040</td>
+              <td class="num">&#165;-1,218,100</td>
+            </tr><tr>
+              <td class="yr">7</td>
+              <td class="num danger">&#165;-207,091</td>
+              <td class="num">&#165;-1,425,191</td>
+            </tr><tr>
+              <td class="yr">8</td>
+              <td class="num danger">&#165;-207,091</td>
+              <td class="num">&#165;-1,632,281</td>
+            </tr><tr>
+              <td class="yr">9</td>
+              <td class="num danger">&#165;-209,161</td>
+              <td class="num">&#165;-1,841,443</td>
+            </tr><tr>
+              <td class="yr">10</td>
+              <td class="num">&#165;333,347,688</td>
+              <td class="num">&#165;331,506,245</td>
+            </tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="detail-card" id="detail-1" style="display:none;border-top:4px solid #2E8B57">
+          <div class="detail-header" style="background:#2E8B5710">
+            <h3 style="color:#2E8B57">駐車場活用</h3>
+            <p class="detail-desc">古屋を解体し、駐車場として活用。借上げ会社による安定収入。初期投資・リスクともに低い。</p>
+          </div>
+          <div class="detail-kpi">
+            <div class="dk"><span class="dk-l">初期投資</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk"><span class="dk-l">IRR</span><span class="dk-v">1.33%</span></div>
+            <div class="dk bad"><span class="dk-l">NPV</span><span class="dk-v">&#165;-96,348,763</span></div>
+            <div class="dk"><span class="dk-l">ATCF合計</span><span class="dk-v">&#165;45,048,498</span></div>
+            <div class="dk"><span class="dk-l">CGR（資本成長率）</span><span class="dk-v">1.44%</span></div>
+            <div class="dk"><span class="dk-l">調整後投資額</span><span class="dk-v">&#165;-333,950,966</span></div>
+            <div class="dk"><span class="dk-l">10年目FV</span><span class="dk-v">&#165;385,159,705</span></div>
+            <div class="dk"><span class="dk-l">10年目CF（売却込）</span><span class="dk-v">&#165;349,335,460</span></div>
+          </div>
+          <div class="detail-table">
+            <table>
+              <thead><tr><th>年</th><th>ATCF</th><th>累積ATCF</th></tr></thead>
+              <tbody><tr>
+              <td class="yr">1</td>
+              <td class="num danger">&#165;-401,999</td>
+              <td class="num">&#165;-401,999</td>
+            </tr><tr>
+              <td class="yr">2</td>
+              <td class="num">&#165;5,458,120</td>
+              <td class="num">&#165;5,056,121</td>
+            </tr><tr>
+              <td class="yr">3</td>
+              <td class="num">&#165;3,792,925</td>
+              <td class="num">&#165;8,849,046</td>
+            </tr><tr>
+              <td class="yr">4</td>
+              <td class="num">&#165;3,777,424</td>
+              <td class="num">&#165;12,626,470</td>
+            </tr><tr>
+              <td class="yr">5</td>
+              <td class="num">&#165;3,761,609</td>
+              <td class="num">&#165;16,388,079</td>
+            </tr><tr>
+              <td class="yr">6</td>
+              <td class="num">&#165;1,745,475</td>
+              <td class="num">&#165;18,133,554</td>
+            </tr><tr>
+              <td class="yr">7</td>
+              <td class="num">&#165;3,729,016</td>
+              <td class="num">&#165;21,862,570</td>
+            </tr><tr>
+              <td class="yr">8</td>
+              <td class="num">&#165;3,712,224</td>
+              <td class="num">&#165;25,574,794</td>
+            </tr><tr>
+              <td class="yr">9</td>
+              <td class="num">&#165;3,695,093</td>
+              <td class="num">&#165;29,269,887</td>
+            </tr><tr>
+              <td class="yr">10</td>
+              <td class="num">&#165;349,335,460</td>
+              <td class="num">&#165;378,605,347</td>
+            </tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="detail-card" id="detail-2" style="display:none;border-top:4px solid #E07B39">
+          <div class="detail-header" style="background:#E07B3910">
+            <h3 style="color:#E07B39">リフォーム＆賃貸</h3>
+            <p class="detail-desc">古屋をリフォームして賃貸。年間約400万円の家賃収入を見込む。初期投資を抑えつつ収益化。</p>
+          </div>
+          <div class="detail-kpi">
+            <div class="dk"><span class="dk-l">初期投資</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk"><span class="dk-l">IRR</span><span class="dk-v">-0.66%</span></div>
+            <div class="dk bad"><span class="dk-l">NPV</span><span class="dk-v">&#165;-141,985,306</span></div>
+            <div class="dk"><span class="dk-l">ATCF合計</span><span class="dk-v">&#165;-21,331,259</span></div>
+            <div class="dk"><span class="dk-l">CGR（資本成長率）</span><span class="dk-v">-0.64%</span></div>
+            <div class="dk"><span class="dk-l">調整後投資額</span><span class="dk-v">&#165;-336,529,580</span></div>
+            <div class="dk"><span class="dk-l">10年目FV</span><span class="dk-v">&#165;315,651,439</span></div>
+            <div class="dk"><span class="dk-l">10年目CF（売却込）</span><span class="dk-v">&#165;315,651,439</span></div>
+          </div>
+          <div class="detail-table">
+            <table>
+              <thead><tr><th>年</th><th>ATCF</th><th>累積ATCF</th></tr></thead>
+              <tbody><tr>
+              <td class="yr">1</td>
+              <td class="num danger">&#165;-334,999</td>
+              <td class="num">&#165;-334,999</td>
+            </tr><tr>
+              <td class="yr">2</td>
+              <td class="num">&#165;2,571,245</td>
+              <td class="num">&#165;2,236,246</td>
+            </tr><tr>
+              <td class="yr">3</td>
+              <td class="num danger">&#165;-747,987</td>
+              <td class="num">&#165;1,488,259</td>
+            </tr><tr>
+              <td class="yr">4</td>
+              <td class="num danger">&#165;-767,609</td>
+              <td class="num">&#165;720,650</td>
+            </tr><tr>
+              <td class="yr">5</td>
+              <td class="num danger">&#165;-787,625</td>
+              <td class="num">&#165;-66,975</td>
+            </tr><tr>
+              <td class="yr">6</td>
+              <td class="num danger">&#165;-808,046</td>
+              <td class="num">&#165;-875,021</td>
+            </tr><tr>
+              <td class="yr">7</td>
+              <td class="num danger">&#165;-828,879</td>
+              <td class="num">&#165;-1,703,900</td>
+            </tr><tr>
+              <td class="yr">8</td>
+              <td class="num danger">&#165;-850,133</td>
+              <td class="num">&#165;-2,554,033</td>
+            </tr><tr>
+              <td class="yr">9</td>
+              <td class="num danger">&#165;-871,816</td>
+              <td class="num">&#165;-3,425,849</td>
+            </tr><tr>
+              <td class="yr">10</td>
+              <td class="num">&#165;315,651,439</td>
+              <td class="num">&#165;312,225,590</td>
+            </tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="detail-card" id="detail-3" style="display:none;border-top:4px solid #1F4E79">
+          <div class="detail-header" style="background:#1F4E7910">
+            <h3 style="color:#1F4E79">建て替え</h3>
+            <p class="detail-desc">古屋を解体し、容積率を最大限活用して賃貸マンションを新築（建物坪単価170万円）。投資額が最も大きい。</p>
+          </div>
+          <div class="detail-kpi">
+            <div class="dk"><span class="dk-l">初期投資</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk"><span class="dk-l">IRR</span><span class="dk-v">-</span></div>
+            <div class="dk bad"><span class="dk-l">NPV</span><span class="dk-v">&#165;-542,783,075</span></div>
+            <div class="dk"><span class="dk-l">ATCF合計</span><span class="dk-v">&#165;-616,750,046</span></div>
+            <div class="dk"><span class="dk-l">CGR（資本成長率）</span><span class="dk-v">-</span></div>
+            <div class="dk"><span class="dk-l">調整後投資額</span><span class="dk-v">&#165;-572,185,925</span></div>
+            <div class="dk bad"><span class="dk-l">10年目FV</span><span class="dk-v">&#165;0（実際はマイナス）</span></div>
+            <div class="dk"><span class="dk-l">10年目CF（売却込）</span><span class="dk-v">&#165;-71,675,279</span></div>
+          </div>
+          <div style="margin:0 28px 8px;padding:10px 14px;background:#FEF2F2;border-radius:6px;font-size:11px;color:#991B1B;border-left:3px solid #DC2626;">
+            ※ 建て替えの資本蓄積FVは、最終年に大きな返済が発生しマイナスとなりますが、計算が煩雑なため本分析では0円として表示しています。実際の資本蓄積はマイナス（元本割れ）です。
+          </div>
+          <div class="detail-table">
+            <table>
+              <thead><tr><th>年</th><th>ATCF</th><th>累積ATCF</th></tr></thead>
+              <tbody><tr>
+              <td class="yr">1</td>
+              <td class="num danger">&#165;-20,704,479</td>
+              <td class="num">&#165;-20,704,479</td>
+            </tr><tr>
+              <td class="yr">2</td>
+              <td class="num danger">&#165;-20,974,294</td>
+              <td class="num">&#165;-41,678,773</td>
+            </tr><tr>
+              <td class="yr">3</td>
+              <td class="num danger">&#165;-21,249,554</td>
+              <td class="num">&#165;-62,928,327</td>
+            </tr><tr>
+              <td class="yr">4</td>
+              <td class="num danger">&#165;-23,168,125</td>
+              <td class="num">&#165;-86,096,452</td>
+            </tr><tr>
+              <td class="yr">5</td>
+              <td class="num danger">&#165;-23,481,364</td>
+              <td class="num">&#165;-109,577,816</td>
+            </tr><tr>
+              <td class="yr">6</td>
+              <td class="num danger">&#165;-23,801,885</td>
+              <td class="num">&#165;-133,379,701</td>
+            </tr><tr>
+              <td class="yr">7</td>
+              <td class="num danger">&#165;-25,680,445</td>
+              <td class="num">&#165;-159,060,146</td>
+            </tr><tr>
+              <td class="yr">8</td>
+              <td class="num danger">&#165;-26,042,893</td>
+              <td class="num">&#165;-185,103,039</td>
+            </tr><tr>
+              <td class="yr">9</td>
+              <td class="num danger">&#165;-26,414,879</td>
+              <td class="num">&#165;-211,517,918</td>
+            </tr><tr>
+              <td class="yr">10</td>
+              <td class="num danger">&#165;-71,675,279</td>
+              <td class="num">&#165;-283,193,197</td>
+            </tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="detail-card" id="detail-4" style="display:none;border-top:4px solid #7C3AED">
+          <div class="detail-header" style="background:#7C3AED10">
+            <h3 style="color:#7C3AED">買い替え</h3>
+            <p class="detail-desc">古屋を解体・更地売却し、東京等の収益物件を購入。立地分散によるリスクヘッジが可能。</p>
+          </div>
+          <div class="detail-kpi">
+            <div class="dk"><span class="dk-l">初期投資</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk"><span class="dk-l">IRR</span><span class="dk-v">-1.48%</span></div>
+            <div class="dk bad"><span class="dk-l">NPV</span><span class="dk-v">&#165;-151,265,645</span></div>
+            <div class="dk"><span class="dk-l">ATCF合計</span><span class="dk-v">&#165;-44,387,424</span></div>
+            <div class="dk"><span class="dk-l">CGR（資本成長率）</span><span class="dk-v">-1.21%</span></div>
+            <div class="dk"><span class="dk-l">調整後投資額</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk"><span class="dk-l">10年目FV</span><span class="dk-v">&#165;295,199,234</span></div>
+            <div class="dk"><span class="dk-l">10年目CF（売却込）</span><span class="dk-v">&#165;263,571,339</span></div>
+          </div>
+          <div class="detail-table">
+            <table>
+              <thead><tr><th>年</th><th>ATCF</th><th>累積ATCF</th></tr></thead>
+              <tbody><tr>
+              <td class="yr">1</td>
+              <td class="num">&#165;3,290,522</td>
+              <td class="num">&#165;3,290,522</td>
+            </tr><tr>
+              <td class="yr">2</td>
+              <td class="num">&#165;3,192,741</td>
+              <td class="num">&#165;6,483,263</td>
+            </tr><tr>
+              <td class="yr">3</td>
+              <td class="num">&#165;3,072,726</td>
+              <td class="num">&#165;9,555,989</td>
+            </tr><tr>
+              <td class="yr">4</td>
+              <td class="num">&#165;2,970,958</td>
+              <td class="num">&#165;12,526,947</td>
+            </tr><tr>
+              <td class="yr">5</td>
+              <td class="num">&#165;2,846,774</td>
+              <td class="num">&#165;15,373,721</td>
+            </tr><tr>
+              <td class="yr">6</td>
+              <td class="num">&#165;2,740,856</td>
+              <td class="num">&#165;18,114,577</td>
+            </tr><tr>
+              <td class="yr">7</td>
+              <td class="num">&#165;2,612,337</td>
+              <td class="num">&#165;20,726,914</td>
+            </tr><tr>
+              <td class="yr">8</td>
+              <td class="num">&#165;2,502,100</td>
+              <td class="num">&#165;23,229,014</td>
+            </tr><tr>
+              <td class="yr">9</td>
+              <td class="num">&#165;2,369,072</td>
+              <td class="num">&#165;25,598,086</td>
+            </tr><tr>
+              <td class="yr">10</td>
+              <td class="num">&#165;263,571,339</td>
+              <td class="num">&#165;289,169,425</td>
+            </tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="detail-card" id="detail-5" style="display:none;border-top:4px solid #DC2626">
+          <div class="detail-header" style="background:#DC262610">
+            <h3 style="color:#DC2626">売却＆金融資産運用</h3>
+            <p class="detail-desc">解体後、更地として売却。売却代金 &#165;333,556,849 を年利7.2%で10年間複利運用。10年目に利益確定し、譲渡益に対して20.315%課税。</p>
+          </div>
+          <div class="detail-kpi">
+            <div class="dk good"><span class="dk-l">初期投資</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk good"><span class="dk-l">IRR</span><span class="dk-v">6.06%</span></div>
+            <div class="dk good"><span class="dk-l">NPV（唯一プラス）</span><span class="dk-v">&#165;+35,083,509</span></div>
+            <div class="dk good"><span class="dk-l">ATCF合計</span><span class="dk-v">&#165;266,919,449</span></div>
+            <div class="dk good"><span class="dk-l">CGR（資本成長率）</span><span class="dk-v">6.06%</span></div>
+            <div class="dk"><span class="dk-l">調整後投資額</span><span class="dk-v">&#165;-333,556,849</span></div>
+            <div class="dk good"><span class="dk-l">10年目FV</span><span class="dk-v">&#165;600,476,298</span></div>
+            <div class="dk good"><span class="dk-l">10年目CF（売却込）</span><span class="dk-v">&#165;600,476,298</span></div>
+          </div>
+          <div class="detail-table">
+            <table>
+              <thead><tr><th>年</th><th>運用残高（税引前）</th><th>ATCF</th><th>累積ATCF</th></tr></thead>
+              <tbody><tr>
+              <td class="yr">0</td>
+              <td class="num">&#165;333,556,849</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+            </tr><tr>
+              <td class="yr">1</td>
+              <td class="num">&#165;357,572,942</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">2</td>
+              <td class="num">&#165;383,318,194</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">3</td>
+              <td class="num">&#165;410,917,104</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">4</td>
+              <td class="num">&#165;440,503,135</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">5</td>
+              <td class="num">&#165;472,219,361</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">6</td>
+              <td class="num">&#165;506,219,155</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">7</td>
+              <td class="num">&#165;542,666,934</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">8</td>
+              <td class="num">&#165;581,738,953</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">9</td>
+              <td class="num">&#165;623,624,158</td>
+              <td class="num">&#165;0</td>
+              <td class="num">&#165;0</td>
+            </tr><tr>
+              <td class="yr">10</td>
+              <td class="num" style="font-weight:700">&#165;668,525,098</td>
+              <td class="num" style="color:#1B5E20;font-weight:700">&#165;600,476,298</td>
+              <td class="num" style="color:#1B5E20;font-weight:700">&#165;600,476,298</td>
+            </tr></tbody>
+            </table>
+            <div style="margin-top:12px;padding:12px;background:#f0f4f8;border-radius:6px;font-size:12px;color:#666;">
+              <strong>金融資産運用の計算内訳:</strong><br>
+              税引前FV: &#165;333,556,849 x (1.072)^10 = &#165;668,525,098<br>
+              譲渡益: &#165;668,525,098 - &#165;333,556,849 = &#165;334,968,249<br>
+              税額（20.315%）: &#165;334,968,249 x 0.20315 = &#165;68,048,800<br>
+              <strong>税引後手取り: &#165;668,525,098 - &#165;68,048,800 = &#165;600,476,298</strong>
+            </div>
+          </div>
+        </div></div>
+  </div>
+
+  <!-- 分析まとめ -->
+  <div class="section">
+    <div class="section-title">総合分析まとめ</div>
+    <div style="padding:20px 28px;font-size:13px;line-height:1.8;color:#555;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+        <thead>
+          <tr style="background:var(--navy);color:#fff;">
+            <th style="padding:10px;text-align:left;">順位</th>
+            <th style="padding:10px;text-align:left;">代替案</th>
+            <th style="padding:10px;text-align:right;">10年目FV</th>
+            <th style="padding:10px;text-align:right;">IRR</th>
+            <th style="padding:10px;text-align:right;">NPV</th>
+            <th style="padding:10px;text-align:left;">評価</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#E8F5E9;font-weight:700;">
+            <td style="padding:8px;">1</td>
+            <td style="padding:8px;">金融資産運用（7.2%）</td>
+            <td style="padding:8px;text-align:right;">&#165;600,476,298</td>
+            <td style="padding:8px;text-align:right;">6.06%</td>
+            <td style="padding:8px;text-align:right;color:#1B5E20;">+&#165;35,083,509</td>
+            <td style="padding:8px;">圧倒的1位。唯一NPVプラス</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;">2</td>
+            <td style="padding:8px;">駐車場活用</td>
+            <td style="padding:8px;text-align:right;">&#165;385,159,705</td>
+            <td style="padding:8px;text-align:right;">1.33%</td>
+            <td style="padding:8px;text-align:right;color:var(--red);">-&#165;96,348,763</td>
+            <td style="padding:8px;">保有継続なら最善。安定的</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;">3</td>
+            <td style="padding:8px;">継続保有</td>
+            <td style="padding:8px;text-align:right;">&#165;333,556,849</td>
+            <td style="padding:8px;text-align:right;">-0.06%</td>
+            <td style="padding:8px;text-align:right;color:var(--red);">-&#165;130,362,240</td>
+            <td style="padding:8px;">現状維持。毎年20万円流出</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;">4</td>
+            <td style="padding:8px;">リフォーム＆賃貸</td>
+            <td style="padding:8px;text-align:right;">&#165;315,651,439</td>
+            <td style="padding:8px;text-align:right;">-0.66%</td>
+            <td style="padding:8px;text-align:right;color:var(--red);">-&#165;141,985,306</td>
+            <td style="padding:8px;">賃料収入あるが維持費で相殺</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;">5</td>
+            <td style="padding:8px;">買い替え</td>
+            <td style="padding:8px;text-align:right;">&#165;295,199,234</td>
+            <td style="padding:8px;text-align:right;">-1.48%</td>
+            <td style="padding:8px;text-align:right;color:var(--red);">-&#165;151,265,645</td>
+            <td style="padding:8px;">不動産リスク残存。元本割れ</td>
+          </tr>
+          <tr style="background:#FEE2E2;">
+            <td style="padding:8px;">6</td>
+            <td style="padding:8px;">建て替え</td>
+            <td style="padding:8px;text-align:right;">&#165;0</td>
+            <td style="padding:8px;text-align:right;">-</td>
+            <td style="padding:8px;text-align:right;color:var(--red);">-&#165;542,783,075</td>
+            <td style="padding:8px;">最悪。10年で回収不能。FVは実際マイナス</td>
+          </tr>
+        </tbody>
+      </table>
+      <p><strong>結論:</strong> 年7.2%の金融資産運用を前提とすると、売却＆金融資産運用が全指標で圧倒的に優れている。10年後の資本蓄積は約6億円で、2位の駐車場（3.85億円）に2.15億円の差をつける。NPVもプラスとなる唯一のシナリオであり、資産運用の観点からは「売却して金融資産へ」が最善の選択となる。</p>
+      <p style="margin-top:8px;">ただし、M氏の「先祖の土地は売らない」という意向がある場合、その意思決定には約2.15億円の機会コストが伴うことを認識した上で、保有継続の場合は駐車場活用を推奨する。</p>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    ※ 本分析はCCIM/IREM理論に基づく参考情報です。投資助言ではありません。<br>
+    データソース: Proformer不動産投資診断プロ（IRR・資本蓄積CF.xlsx）。金融資産運用: 年利7.2%複利、10年目利益確定時に譲渡益に20.315%課税。<br>
+    再投資率: 4% / 安全率: 2%。
+    CGR（資本成長率） = プラスCFを再投資率で複利運用した10年目FV / マイナスCFを安全率で割引した調整後投資額 から算出。
+  </div>
+</div>
+
+<script>
+const DATA = [{"label": "継続保有", "short": "継続保有", "color": "#6B7280", "atcf": [-201000, -201000, -203010, -203010, -205040.1, -205040.1, -207090.50100000002, -207090.50100000002, -209161.40601, 333347687.59399], "cumulative": [-201000, -402000, -605010, -808020, -1013060.1, -1218100.2, -1425190.701, -1632281.2019999998, -1841442.6080099999, 331506244.98598003]}, {"label": "駐車場活用", "short": "駐車場", "color": "#2E8B57", "atcf": [-401999, 5458120, 3792925, 3777424, 3761609, 1745475, 3729016, 3712224, 3695093, 349335460], "cumulative": [-401999, 5056121, 8849046, 12626470, 16388079, 18133554, 21862570, 25574794, 29269887, 378605347]}, {"label": "リフォーム＆賃貸", "short": "リフォーム", "color": "#E07B39", "atcf": [-334999, 2571245, -747987, -767609, -787625, -808046, -828879, -850133, -871816, 315651439], "cumulative": [-334999, 2236246, 1488259, 720650, -66975, -875021, -1703900, -2554033, -3425849, 312225590]}, {"label": "建て替え", "short": "建て替え", "color": "#1F4E79", "atcf": [-20704479, -20974294, -21249554, -23168125, -23481364, -23801885, -25680445, -26042893, -26414879, -71675279], "cumulative": [-20704479, -41678773, -62928327, -86096452, -109577816, -133379701, -159060146, -185103039, -211517918, -283193197]}, {"label": "買い替え", "short": "買い替え", "color": "#7C3AED", "atcf": [3290522, 3192741, 3072726, 2970958, 2846774, 2740856, 2612337, 2502100, 2369072, 263571339], "cumulative": [3290522, 6483263, 9555989, 12526947, 15373721, 18114577, 20726914, 23229014, 25598086, 289169425]}, {"label": "売却＆金融資産運用", "short": "金融資産", "color": "#DC2626", "atcf": [0, 0, 0, 0, 0, 0, 0, 0, 0, 600476298], "cumulative": [0, 0, 0, 0, 0, 0, 0, 0, 0, 600476298]}];
+
+const FV_DATA = [
+  {label:"金融資産", color:"#DC2626", value:600476298},
+  {label:"駐車場", color:"#2E8B57", value:385159705},
+  {label:"継続保有", color:"#6B7280", value:333556849},
+  {label:"リフォーム", color:"#E07B39", value:315651439},
+  {label:"買い替え", color:"#7C3AED", value:295199234},
+  {label:"建て替え", color:"#1F4E79", value:0}
+];
+
+function yen(v) { return '\u00a5' + Math.round(v).toLocaleString(); }
+
+function drawChart(id, getter, fmtY) {
+  const W = 900, H = 250;
+  let maxV = 0.001, minV = 0;
+  for (const s of DATA) {
+    const vals = getter(s);
+    for (const v of vals) {
+      if (v !== null) { maxV = Math.max(maxV, Math.abs(v)); minV = Math.min(minV, v); }
+    }
+  }
+  const hasNeg = minV < 0;
+  const range = hasNeg ? Math.max(Math.abs(maxV), Math.abs(minV)) : maxV;
+  const zeroY = hasNeg ? H/2 : H-20;
+  const scale = (hasNeg ? (H-40)/2 : (H-40)) / range;
+  if (!isFinite(scale)) return;
+
+  let svg = '';
+  if (hasNeg) {
+    svg += `<line x1="70" y1="${zeroY}" x2="${W-20}" y2="${zeroY}" stroke="#999" stroke-width="0.5" stroke-dasharray="4"/>`;
+    for (let s of [1,-1]) for (let i=1;i<=2;i++) {
+      const v=range*i/2*s, y=zeroY-v*scale;
+      svg += `<text x="65" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${fmtY(v)}</text>`;
+      svg += `<line x1="70" y1="${y}" x2="${W-20}" y2="${y}" stroke="#eee" stroke-width="0.5"/>`;
+    }
+  } else {
+    for (let i=0;i<5;i++) {
+      const v=maxV*i/4, y=zeroY-v*scale;
+      svg += `<text x="65" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${fmtY(v)}</text>`;
+      svg += `<line x1="70" y1="${y}" x2="${W-20}" y2="${y}" stroke="#eee" stroke-width="0.5"/>`;
+    }
+  }
+  for (let yr=1;yr<=10;yr++) {
+    const x=70+(yr-1)*((W-90)/9);
+    svg += `<text x="${x}" y="${H}" text-anchor="middle" font-size="9" fill="#999">${yr}</text>`;
+  }
+  let legend = '';
+  for (const s of DATA) {
+    legend += `<span><span class="dot" style="background:${s.color}"></span>${s.short}</span>`;
+    const vals = getter(s);
+    let pts = [];
+    for (let i=0; i<vals.length; i++) {
+      const v = vals[i];
+      if (v !== null) {
+        const x = 70+i*((W-90)/Math.max(vals.length-1,1));
+        const y = zeroY - v*scale;
+        pts.push({x,y,v,yr:i+1});
+      }
+    }
+    if (pts.length) {
+      svg += `<polyline points="${pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+      for (const p of pts) svg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${s.color}"><title>${s.short} ${p.yr}年目: ${yen(p.v)}</title></circle>`;
+    }
+  }
+  document.getElementById(id).innerHTML = `<svg viewBox="0 0 ${W} ${H+10}">${svg}</svg><div class="chart-legend">${legend}</div>`;
+}
+
+function drawBarChart(id) {
+  const W = 900, H = 280;
+  const maxV = FV_DATA[0].value;
+  const barW = 90, gap = 40;
+  const startX = 100;
+  const topY = 30, botY = H - 30;
+  const chartH = botY - topY;
+
+  let svg = '';
+  // grid lines
+  for (let i=0;i<=4;i++) {
+    const v = maxV * i / 4;
+    const y = botY - (v/maxV)*chartH;
+    svg += `<line x1="${startX-10}" y1="${y}" x2="${startX + FV_DATA.length*(barW+gap)}" y2="${y}" stroke="#eee" stroke-width="0.5"/>`;
+    svg += `<text x="${startX-15}" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${(v/100000000).toFixed(1)}億</text>`;
+  }
+
+  FV_DATA.forEach((d,i) => {
+    const x = startX + i*(barW+gap);
+    const h = d.value > 0 ? (d.value/maxV)*chartH : 0;
+    const y = botY - h;
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${d.color}" rx="4"><title>${d.label}: ${yen(d.value)}</title></rect>`;
+    svg += `<text x="${x+barW/2}" y="${y-8}" text-anchor="middle" font-size="11" font-weight="700" fill="${d.color}">${d.value > 0 ? (d.value/100000000).toFixed(1)+'億' : '0'}</text>`;
+    svg += `<text x="${x+barW/2}" y="${botY+16}" text-anchor="middle" font-size="10" fill="#666">${d.label}</text>`;
+  });
+
+  document.getElementById(id).innerHTML = `<svg viewBox="0 0 ${W} ${H}">${svg}</svg>`;
+}
+
+drawChart('chart-atcf', s=>s.atcf, v=>yen(v));
+drawChart('chart-cum', s=>s.cumulative, v=>yen(v));
+drawBarChart('chart-fv');
+
+function showDetail(idx) {
+  document.querySelectorAll('.detail-card').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.sc-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('detail-'+idx).style.display = 'block';
+  document.querySelectorAll('.sc-tab')[idx].classList.add('active');
+}
+showDetail(5);
+</script>
+</body>
+</html>
